@@ -1,312 +1,319 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  PlusCircle, 
-  Trash2, 
-  CloudOff, 
-  CloudLightning, 
-  CheckCircle, 
-  AlertCircle,
-  Package,
-  Calendar,
-  DollarSign
-} from 'lucide-react';
-
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqAwQj-2MHcMFImO6IbSC7NGL_TEmsSfGoEHj-SvPNsUX-SnirFihFFywRSnOoxBD8ng/exec';
-
-const App = () => {
-  const [transactions, setTransactions] = useState(() => JSON.parse(localStorage.getItem('transactions')) || []);
-  const [syncQueue, setSyncQueue] = useState(() => JSON.parse(localStorage.getItem('sync_queue')) || []);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isSyncing, setIsSyncing] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    product: '',
-    customName: '',
-    price: '',
-    quantity: '1',
-    date: new Date().toISOString().split('T')[0]
-  });
-
-  const products = [
-    { name: '毛巾', price: 25 },
-    { name: '鎖匙扣', price: 20 }
-  ];
-
-  // 監聽網路狀態
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      processQueue(); // 恢復連線時自動處理隊列
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [syncQueue]);
-
-  // 儲存狀態至本地
-  useEffect(() => {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-    localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
-  }, [transactions, syncQueue]);
-
-  // 處理待上傳隊列
-  const processQueue = async () => {
-    if (syncQueue.length === 0 || !navigator.onLine || isSyncing) return;
-    
-    setIsSyncing(true);
-    const queue = [...syncQueue];
-    const remainingQueue = [];
-
-    for (const item of queue) {
-      try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: JSON.stringify(item)
-        });
-      } catch (error) {
-        remainingQueue.push(item); // 失敗則留回隊列
-      }
-    }
-
-    setSyncQueue(remainingQueue);
-    setIsSyncing(false);
-  };
-
-  const handleAddTransaction = (e) => {
-    e.preventDefault();
-    const isOther = formData.product === 'other';
-    const finalProduct = isOther ? formData.customName : formData.product;
-    const finalPrice = parseInt(formData.price);
-
-    const newRecord = {
-      id: "ID-" + Date.now(),
-      date: formData.date,
-      product: finalProduct,
-      quantity: parseInt(formData.quantity),
-      price: finalPrice,
-      total: finalPrice * parseInt(formData.quantity),
-      status: 'active'
-    };
-
-    setTransactions([newRecord, ...transactions]);
-    setSyncQueue([...syncQueue, newRecord]);
-    
-    // 重置表單 (保留日期與產品選項)
-    setFormData(prev => ({ ...prev, customName: '' }));
-    
-    // 如果有網路立即嘗試處理
-    setTimeout(processQueue, 500);
-  };
-
-  const handleDelete = (id) => {
-    const item = transactions.find(t => t.id === id);
-    if (!item) return;
-
-    if (window.confirm('確定要刪除此記錄？(雲端將同步標記)')) {
-      const deleteAction = { ...item, status: 'del', total: 0 };
-      setTransactions(transactions.filter(t => t.id !== id));
-      setSyncQueue([...syncQueue, deleteAction]);
-      setTimeout(processQueue, 500);
-    }
-  };
-
-  const grandTotal = useMemo(() => {
-    return transactions.reduce((sum, t) => sum + t.total, 0);
-  }, [transactions]);
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Top Status Bar */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              交易管理系統 
-              {isOnline ? 
-                <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full flex items-center gap-1">
-                  <CloudLightning size={12} /> 在線
-                </span> : 
-                <span className="text-xs bg-amber-100 text-amber-600 px-2 py-1 rounded-full flex items-center gap-1">
-                  <CloudOff size={12} /> 離線模式
-                </span>
-              }
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">資料自動保存於本地並異步同步至 Google Sheets</p>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-6 min-w-[240px]">
-            <div className="bg-blue-50 p-3 rounded-xl text-blue-600">
-              <DollarSign size={24} />
-            </div>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易管理系統 - 離線補傳專業版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: linear-gradient(135deg, #f6f8fb 0%, #e9effd 100%);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
+        }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 antialiased p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- 狀態欄與標題 -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">本地總計收入</p>
-              <p className="text-2xl font-black text-blue-600">${grandTotal.toLocaleString()}</p>
+                <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                    交易管理系統
+                    <span id="networkStatus"></span>
+                </h1>
+                <p class="text-slate-500 text-sm mt-1">資料自動保存於本地並支援離線補傳</p>
             </div>
-          </div>
+            
+            <div class="glass-card px-8 py-5 rounded-3xl flex items-center gap-6">
+                <div class="bg-blue-500/10 p-3 rounded-2xl text-blue-600">
+                    <i data-lucide="dollar-sign"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">本地收入總計</p>
+                    <p class="text-3xl font-black text-blue-600" id="grandTotalDisplay">$0</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- 表單區 -->
+            <aside class="lg:col-span-4 space-y-6">
+                <div class="glass-card p-8 rounded-3xl">
+                    <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-500 pl-4">新增交易</h2>
+                    <form id="transactionForm" class="space-y-5">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase">產品名稱</label>
+                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
+                                <option value="" disabled selected>請選擇產品...</option>
+                                <option value="毛巾" data-price="25">毛巾 ($25)</option>
+                                <option value="鎖匙扣" data-price="20">鎖匙扣 ($20)</option>
+                                <option value="other">＋ 其他產品 (手動輸入)</option>
+                            </select>
+                        </div>
+
+                        <div id="otherField" class="hidden space-y-2 animate-in fade-in">
+                            <label class="text-xs font-bold text-slate-500 uppercase">自定義名稱</label>
+                            <input type="text" id="customName" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none" placeholder="輸入產品名稱">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-slate-500 uppercase">單價</label>
+                                <input type="number" id="unitPrice" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold text-slate-500 uppercase">數量</label>
+                                <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none"></select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase">交易日期</label>
+                            <input type="date" id="date" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none">
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg transition active:scale-95 flex justify-center items-center gap-2">
+                            <i data-lucide="plus-circle" size="18"></i> 確認提交
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 待同步提示 -->
+                <div id="queueCard" class="hidden bg-amber-50 p-5 rounded-3xl border border-amber-100">
+                    <div class="flex items-center justify-between text-amber-800">
+                        <span class="text-sm font-bold flex items-center gap-2">
+                            <i data-lucide="alert-circle" size="16"></i> 待同步項目: <span id="queueCount">0</span>
+                        </span>
+                        <div id="syncSpinner" class="hidden animate-spin h-4 w-4 border-2 border-amber-600 border-t-transparent rounded-full"></div>
+                    </div>
+                    <p class="text-amber-600 text-[10px] mt-2 italic">恢復連線後將自動補傳至雲端。</p>
+                </div>
+            </aside>
+
+            <!-- 列表區 -->
+            <main class="lg:col-span-8">
+                <div class="glass-card rounded-3xl overflow-hidden min-h-[400px]">
+                    <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white/50">
+                        <h2 class="text-lg font-bold">歷史交易清單</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50/50">
+                                <tr class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                    <th class="px-8 py-4">日期</th>
+                                    <th class="px-6 py-4">產品細節</th>
+                                    <th class="px-6 py-4">數量</th>
+                                    <th class="px-6 py-4 text-right">總計</th>
+                                    <th class="px-8 py-4 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordList" class="divide-y divide-slate-100">
+                                <!-- 內容由 JS 動態生成 -->
+                            </tbody>
+                        </table>
+                        <div id="emptyState" class="hidden py-20 text-center text-slate-300">
+                            <i data-lucide="package" size="48" class="mx-auto mb-4 opacity-20"></i>
+                            <p>目前尚無記錄</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Form */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-              <h2 className="text-lg font-bold mb-5 flex items-center gap-2">
-                <PlusCircle size={20} className="text-blue-500" /> 新增交易
-              </h2>
-              <form onSubmit={handleAddTransaction} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">產品名稱</label>
-                  <select 
-                    value={formData.product}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const p = products.find(i => i.name === val);
-                      setFormData({...formData, product: val, price: p ? p.price : ''});
-                    }}
-                    required
-                    className="w-full p-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
-                  >
-                    <option value="">請選擇產品</option>
-                    {products.map(p => <option key={p.name} value={p.name}>{p.name} (${p.price})</option>)}
-                    <option value="other">＋ 其他產品 (手動輸入)</option>
-                  </select>
-                </div>
-
-                {formData.product === 'other' && (
-                  <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase">自定義名稱</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={formData.customName}
-                      onChange={(e) => setFormData({...formData, customName: e.target.value})}
-                      className="w-full p-3 bg-slate-50 border rounded-xl outline-none"
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase">單價</label>
-                    <input 
-                      type="number" 
-                      required
-                      value={formData.price}
-                      readOnly={formData.product !== 'other'}
-                      onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className={`w-full p-3 border rounded-xl outline-none ${formData.product !== 'other' ? 'bg-slate-100 text-slate-400' : 'bg-slate-50'}`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase">數量</label>
-                    <select 
-                      value={formData.quantity}
-                      onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                      className="w-full p-3 bg-slate-50 border rounded-xl outline-none"
-                    >
-                      {[...Array(50)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">日期</label>
-                  <input 
-                    type="date" 
-                    required
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                    className="w-full p-3 bg-slate-50 border rounded-xl outline-none"
-                  />
-                </div>
-
-                <button 
-                  type="submit" 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-100 transition active:scale-[0.98] mt-4"
-                >
-                  確認新增
-                </button>
-              </form>
-            </div>
-
-            {/* Sync Queue Card */}
-            {syncQueue.length > 0 && (
-              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                <div className="flex items-center justify-between">
-                  <span className="text-amber-800 text-sm font-bold flex items-center gap-2">
-                    <AlertCircle size={16} /> 待同步項目: {syncQueue.length}
-                  </span>
-                  {isSyncing && <div className="animate-spin h-4 w-4 border-2 border-amber-600 border-t-transparent rounded-full"></div>}
-                </div>
-                <p className="text-amber-600 text-[10px] mt-1 italic">當恢復連線時，系統將自動處理這些記錄。</p>
-              </div>
-            )}
-          </div>
-
-          {/* List */}
-          <div className="lg:col-span-8">
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b flex justify-between items-center">
-                <h2 className="text-lg font-bold text-slate-800">歷史交易清單</h2>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  顯示最近項目
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                      <th className="px-6 py-4">日期</th>
-                      <th className="px-6 py-4">產品</th>
-                      <th className="px-6 py-4">單價</th>
-                      <th className="px-6 py-4">數量</th>
-                      <th className="px-6 py-4 text-right">總額</th>
-                      <th className="px-6 py-4 text-center">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {transactions.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="py-20 text-center text-slate-300">
-                          <Package className="mx-auto mb-3 opacity-20" size={48} />
-                          目前尚無記錄
-                        </td>
-                      </tr>
-                    ) : (
-                      transactions.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4">
-                            <span className="text-xs font-medium text-slate-400">{item.date}</span>
-                          </td>
-                          <td className="px-6 py-4 font-bold text-slate-700">{item.product}</td>
-                          <td className="px-6 py-4 text-sm text-slate-500">${item.price}</td>
-                          <td className="px-6 py-4 text-sm text-slate-500">x{item.quantity}</td>
-                          <td className="px-6 py-4 text-right font-black text-blue-600">${item.total}</td>
-                          <td className="px-6 py-4 text-center">
-                            <button 
-                              onClick={() => handleDelete(item.id)}
-                              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
-  );
-};
 
-export default App;
+    <script>
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqAwQj-2MHcMFImO6IbSC7NGL_TEmsSfGoEHj-SvPNsUX-SnirFihFFywRSnOoxBD8ng/exec';
+        
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let syncQueue = JSON.parse(localStorage.getItem('sync_queue')) || [];
+        let isSyncing = false;
+
+        // 初始化
+        function init() {
+            lucide.createIcons();
+            
+            // 設定日期預設值
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            
+            // 填充數量選單
+            const qtySelect = document.getElementById('quantity');
+            for(let i=1; i<=50; i++) {
+                const opt = document.createElement('option');
+                opt.value = i; opt.textContent = i;
+                qtySelect.appendChild(opt);
+            }
+
+            updateStatus();
+            render();
+            processQueue();
+
+            // 監聽網路
+            window.addEventListener('online', () => { updateStatus(); processQueue(); });
+            window.addEventListener('offline', updateStatus);
+        }
+
+        // 產品選擇邏輯
+        document.getElementById('productSelect').addEventListener('change', function() {
+            const priceInput = document.getElementById('unitPrice');
+            const otherField = document.getElementById('otherField');
+            
+            if (this.value === 'other') {
+                otherField.classList.remove('hidden');
+                priceInput.value = '';
+                priceInput.readOnly = false;
+            } else {
+                otherField.classList.add('hidden');
+                const price = this.options[this.selectedIndex].dataset.price;
+                priceInput.value = price;
+                priceInput.readOnly = true;
+            }
+        });
+
+        // 提交表單
+        document.getElementById('transactionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const productVal = document.getElementById('productSelect').value;
+            const price = parseInt(document.getElementById('unitPrice').value);
+            const qty = parseInt(document.getElementById('quantity').value);
+            
+            const record = {
+                id: "ID-" + Date.now(),
+                date: document.getElementById('date').value,
+                product: productVal === 'other' ? document.getElementById('customName').value : productVal,
+                quantity: qty,
+                price: price,
+                total: price * qty,
+                status: 'active'
+            };
+
+            transactions.unshift(record);
+            syncQueue.push(record);
+            save();
+            render();
+            processQueue();
+            
+            if(productVal === 'other') document.getElementById('customName').value = '';
+        });
+
+        // 刪除
+        window.deleteRecord = function(id) {
+            if(confirm('確定要刪除？')) {
+                const idx = transactions.findIndex(t => t.id === id);
+                if(idx > -1) {
+                    const deletedItem = {...transactions[idx], status: 'del', total: 0};
+                    transactions.splice(idx, 1);
+                    syncQueue.push(deletedItem);
+                    save();
+                    render();
+                    processQueue();
+                }
+            }
+        };
+
+        // 隊列處理
+        async function processQueue() {
+            if (syncQueue.length === 0 || !navigator.onLine || isSyncing) {
+                updateQueueUI();
+                return;
+            }
+            
+            isSyncing = true;
+            document.getElementById('syncSpinner').classList.remove('hidden');
+            
+            while(syncQueue.length > 0 && navigator.onLine) {
+                const item = syncQueue[0];
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify(item)
+                    });
+                    syncQueue.shift(); // 成功才移除
+                    save();
+                    updateQueueUI();
+                } catch (e) {
+                    break; // 失敗則跳出循環
+                }
+            }
+            
+            isSyncing = false;
+            document.getElementById('syncSpinner').classList.add('hidden');
+            updateQueueUI();
+        }
+
+        // UI 渲染
+        function render() {
+            const list = document.getElementById('recordList');
+            const empty = document.getElementById('emptyState');
+            list.innerHTML = '';
+            
+            let total = 0;
+            if(transactions.length === 0) {
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                transactions.forEach(item => {
+                    total += item.total;
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-8 py-5 text-xs text-slate-400 font-medium">${item.date}</td>
+                        <td class="px-6 py-5">
+                            <div class="font-bold text-slate-700">${item.product}</div>
+                            <div class="text-[10px] text-slate-400">$${item.price} / 單位</div>
+                        </td>
+                        <td class="px-6 py-5 text-sm">x${item.quantity}</td>
+                        <td class="px-6 py-5 text-right font-black text-blue-600">$${item.total.toLocaleString()}</td>
+                        <td class="px-8 py-5 text-center">
+                            <button onclick="deleteRecord('${item.id}')" class="text-slate-300 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all">
+                                <i data-lucide="trash-2" size="18"></i>
+                            </button>
+                        </td>
+                    `;
+                    list.appendChild(tr);
+                });
+            }
+            document.getElementById('grandTotalDisplay').textContent = `$${total.toLocaleString()}`;
+            lucide.createIcons();
+        }
+
+        function updateStatus() {
+            const el = document.getElementById('networkStatus');
+            if(navigator.onLine) {
+                el.innerHTML = `<span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="cloud-lightning" size="12"></i> 在線</span>`;
+            } else {
+                el.innerHTML = `<span class="text-xs bg-amber-100 text-amber-600 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="cloud-off" size="12"></i> 離線模式</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        function updateQueueUI() {
+            const card = document.getElementById('queueCard');
+            const count = document.getElementById('queueCount');
+            if(syncQueue.length > 0) {
+                card.classList.remove('hidden');
+                count.textContent = syncQueue.length;
+            } else {
+                card.classList.add('hidden');
+            }
+        }
+
+        function save() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
+        }
+
+        init();
+    </script>
+</body>
+</html>
