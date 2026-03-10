@@ -71,8 +71,10 @@
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">產品名稱</label>
                             <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
                                 <option value="" disabled selected>請選擇產品...</option>
-                                <option value="毛巾" data-price="25" data-cost="10">毛巾 (售$25/本$10)</option>
-                                <option value="鎖匙扣" data-price="20" data-cost="8">鎖匙扣 (售$20/本$8)</option>
+                                <option value="P1-磁懸浮" data-price="360" data-cost="240.2">P1-磁懸浮 </option>
+                                <option value="P2-帆布袋" data-price="30" data-cost="14.2">P2-帆布袋</option>
+                                <option value="P3-毛巾" data-price="15" data-cost="5.66">P3-毛巾 </option>
+                                <option value="P4-鎖匙扣" data-price="15" data-cost="5">P4-鎖匙扣 </option>
                                 <option value="other">＋ 其他產品 (手動輸入)</option>
                             </select>
                         </div>
@@ -84,12 +86,12 @@
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">單個售價</label>
-                                <input type="number" id="unitPrice" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="0">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">成交售價 (可修改)</label>
+                                <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" placeholder="0">
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">單個成本</label>
-                                <input type="number" id="unitCost" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="0">
+                                <input type="number" step="0.01" id="unitCost" required class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl outline-none" placeholder="0">
                             </div>
                         </div>
 
@@ -178,7 +180,7 @@
             window.addEventListener('offline', updateStatus);
         }
 
-        // 產品選擇時自動填入售價與成本
+        // 產品選擇時自動填入參考值，但允許修改售價
         document.getElementById('productSelect').addEventListener('change', function() {
             const priceInput = document.getElementById('unitPrice');
             const costInput = document.getElementById('unitCost');
@@ -190,14 +192,18 @@
                 costInput.value = '';
                 priceInput.readOnly = false;
                 costInput.readOnly = false;
+                priceInput.focus();
             } else {
                 otherField.classList.add('hidden');
                 const price = this.options[this.selectedIndex].dataset.price;
                 const cost = this.options[this.selectedIndex].dataset.cost;
                 priceInput.value = price;
                 costInput.value = cost;
-                priceInput.readOnly = true;
-                costInput.readOnly = true;
+                
+                // 核心修改：售價不再 readOnly，方便折扣或調價
+                priceInput.readOnly = false;
+                // 成本通常不常變動，保持 readonly 減少誤觸，若需修改可用 "其他"
+                costInput.readOnly = true; 
             }
         });
 
@@ -231,7 +237,11 @@
             render();
             processQueue();
             
+            // 重置
             if(productVal === 'other') document.getElementById('customName').value = '';
+            document.getElementById('transactionForm').reset();
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('otherField').classList.add('hidden');
         });
 
         window.deleteRecord = function(id) {
@@ -305,11 +315,11 @@
                             <div class="text-[10px] text-slate-400">數量: x${item.quantity}</div>
                         </td>
                         <td class="px-6 py-5">
-                            <div class="text-[11px] font-medium text-blue-500">售：$${item.price}</div>
-                            <div class="text-[11px] font-medium text-slate-400">本：$${item.cost}</div>
+                            <div class="text-[11px] font-medium text-blue-500">售：$${item.price.toLocaleString()}</div>
+                            <div class="text-[11px] font-medium text-slate-400">本：$${item.cost.toLocaleString()}</div>
                         </td>
                         <td class="px-6 py-5 text-right">
-                            <div class="font-black ${item.profit >= 0 ? 'profit-text' : 'loss-text'}">
+                            <div class="font-black ${item.profit >= 0 ? 'profit-text' : 'loss-text'} text-sm">
                                 ${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString()}
                             </div>
                             <div class="text-[9px] text-slate-300 uppercase font-bold tracking-tighter">Net Profit</div>
