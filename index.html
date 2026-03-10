@@ -3,78 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易管理系統 - 利潤分析版</title>
+    <title>交易管理系統 - 庫存財務版</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
-            background: linear-gradient(135deg, #f6f8fb 0%, #e9effd 100%);
+            background: linear-gradient(135deg, #f0f4f8 0%, #d7e3fc 100%);
         }
         .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 10px 40px rgba(31, 38, 135, 0.05);
         }
-        .profit-text { color: #10b981; } /* Green-500 */
-        .loss-text { color: #ef4444; }   /* Red-500 */
+        .profit-text { color: #10b981; }
+        .loss-text { color: #ef4444; }
     </style>
 </head>
-<body class="min-h-screen text-slate-800 antialiased p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- 狀態欄與標題 -->
-        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+<body class="min-h-screen text-slate-800 antialiased p-4 md:p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- 頂部標題與基礎設定 -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
             <div>
                 <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
-                    交易管理系統
+                    營運管理系統
                     <span id="networkStatus"></span>
                 </h1>
-                <p class="text-slate-500 text-sm mt-1">即時計算成本與利潤，支援離線補傳</p>
+                <p class="text-slate-500 text-sm mt-1">財務成本、利潤分析及庫存連動</p>
             </div>
             
-            <!-- 數據看板組 -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full lg:w-auto">
-                <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4">
-                    <div class="bg-blue-100 p-2 rounded-lg text-blue-600"><i data-lucide="trending-up" size="20"></i></div>
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">總收入</p>
-                        <p class="text-xl font-black text-slate-700" id="totalRevenue">$0</p>
+            <!-- 成本設定區 -->
+            <div class="glass-card px-6 py-4 rounded-2xl border-l-4 border-slate-500 flex flex-col sm:flex-row items-center gap-4">
+                <div class="text-center sm:text-left">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">已用總成本 (HKD)</p>
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-600 font-bold">$</span>
+                        <input type="number" id="initialBudget" step="0.01" class="bg-transparent text-xl font-black text-slate-700 outline-none w-32 focus:bg-white/50 rounded" value="3962.74">
                     </div>
                 </div>
-                <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4">
-                    <div class="bg-slate-100 p-2 rounded-lg text-slate-600"><i data-lucide="package" size="20"></i></div>
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">總成本</p>
-                        <p class="text-xl font-black text-slate-700" id="totalCost">$0</p>
-                    </div>
-                </div>
-                <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 border-b-4 border-emerald-500">
-                    <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="dollar-sign" size="20"></i></div>
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">預估利潤</p>
-                        <p class="text-xl font-black text-emerald-600" id="totalProfit">$0</p>
-                    </div>
+                <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">目前淨利 (總收入 - 已用成本)</p>
+                    <p class="text-xl font-black text-blue-600" id="netProfitDisplay">$0</p>
                 </div>
             </div>
         </header>
 
+        <!-- 數據核心看板 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-3">
+                <div class="bg-blue-100 p-2 rounded-lg text-blue-600"><i data-lucide="trending-up" size="18"></i></div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">累積總收入</p>
+                    <p class="text-lg font-black text-slate-700" id="totalRevenue">$0</p>
+                </div>
+            </div>
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-3">
+                <div class="bg-amber-100 p-2 rounded-lg text-amber-600"><i data-lucide="shopping-cart" size="18"></i></div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">已售商品成本</p>
+                    <p class="text-lg font-black text-slate-700" id="totalCost">$0</p>
+                </div>
+            </div>
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-3 border-b-4 border-emerald-500">
+                <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="dollar-sign" size="18"></i></div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">累積淨利潤</p>
+                    <p class="text-lg font-black text-emerald-600" id="totalProfit">$0</p>
+                </div>
+            </div>
+            <!-- 庫存顯示小板 -->
+            <div class="glass-card p-4 rounded-2xl lg:col-span-2 overflow-hidden">
+                <div class="flex justify-between items-center mb-2">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">產品剩餘存貨 (點擊修改)</p>
+                    <i data-lucide="box" size="14" class="text-slate-300"></i>
+                </div>
+                <div id="stockGrid" class="grid grid-cols-4 gap-2">
+                    <!-- JS 生成庫存按鈕 -->
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <!-- 表單區 -->
+            <!-- 左側：新增交易 -->
             <aside class="lg:col-span-4 space-y-6">
                 <div class="glass-card p-8 rounded-3xl">
                     <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-500 pl-4">新增交易記錄</h2>
                     <form id="transactionForm" class="space-y-4">
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">產品名稱</label>
-                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
+                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-all">
                                 <option value="" disabled selected>請選擇產品...</option>
-                                <option value="P1-磁懸浮" data-price="360" data-cost="240.2">P1-磁懸浮 </option>
+                                <option value="P1-磁懸浮" data-price="360" data-cost="240.2">P1-磁懸浮</option>
                                 <option value="P2-帆布袋" data-price="30" data-cost="14.2">P2-帆布袋</option>
-                                <option value="P3-毛巾" data-price="15" data-cost="5.66">P3-毛巾 </option>
-                                <option value="P4-鎖匙扣" data-price="15" data-cost="5">P4-鎖匙扣 </option>
+                                <option value="P3-毛巾" data-price="15" data-cost="5.66">P3-毛巾</option>
+                                <option value="P4-鎖匙扣" data-price="15" data-cost="5">P4-鎖匙扣</option>
                                 <option value="other">＋ 其他產品 (手動輸入)</option>
                             </select>
                         </div>
@@ -86,8 +111,8 @@
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">成交售價 (可修改)</label>
-                                <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" placeholder="0">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">成交售價</label>
+                                <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none" placeholder="0">
                             </div>
                             <div class="space-y-1">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">單個成本</label>
@@ -111,23 +136,13 @@
                         </button>
                     </form>
                 </div>
-
-                <!-- 待同步提示 -->
-                <div id="queueCard" class="hidden bg-amber-50 p-5 rounded-3xl border border-amber-100">
-                    <div class="flex items-center justify-between text-amber-800">
-                        <span class="text-sm font-bold flex items-center gap-2">
-                            <i data-lucide="alert-circle" size="16"></i> 待同步項目: <span id="queueCount">0</span>
-                        </span>
-                        <div id="syncSpinner" class="hidden animate-spin h-4 w-4 border-2 border-amber-600 border-t-transparent rounded-full"></div>
-                    </div>
-                </div>
             </aside>
 
-            <!-- 列表區 -->
+            <!-- 右側：清單 -->
             <main class="lg:col-span-8">
-                <div class="glass-card rounded-3xl overflow-hidden min-h-[500px] flex flex-col">
+                <div class="glass-card rounded-3xl overflow-hidden min-h-[550px] flex flex-col">
                     <div class="p-8 border-b border-slate-100 bg-white/50">
-                        <h2 class="text-lg font-bold">歷史交易清單 (利潤分析)</h2>
+                        <h2 class="text-lg font-bold">歷史交易清單</h2>
                     </div>
                     <div class="overflow-x-auto flex-grow">
                         <table class="w-full text-left">
@@ -135,22 +150,33 @@
                                 <tr class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                                     <th class="px-6 py-4">日期</th>
                                     <th class="px-6 py-4">產品內容</th>
-                                    <th class="px-6 py-4">收支明細 (單價)</th>
+                                    <th class="px-6 py-4">收支明細</th>
                                     <th class="px-6 py-4 text-right">利潤</th>
                                     <th class="px-6 py-4 text-center">操作</th>
                                 </tr>
                             </thead>
-                            <tbody id="recordList" class="divide-y divide-slate-100">
-                                <!-- JS 動態填充 -->
-                            </tbody>
+                            <tbody id="recordList" class="divide-y divide-slate-100"></tbody>
                         </table>
                         <div id="emptyState" class="hidden py-32 text-center text-slate-300">
                             <i data-lucide="layout-list" size="48" class="mx-auto mb-4 opacity-10"></i>
-                            <p class="font-medium text-slate-400">目前尚無任何交易記錄</p>
+                            <p class="font-medium">尚無交易記錄</p>
                         </div>
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- 庫存編輯 Modal -->
+    <div id="stockModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+            <h3 class="text-xl font-bold mb-4" id="modalTitle">修改存貨量</h3>
+            <p class="text-sm text-slate-500 mb-6">請輸入目前 <span id="targetProductName" class="font-bold text-blue-600"></span> 的剩餘數量。</p>
+            <input type="number" id="newStockCount" class="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-black outline-none mb-6 text-center" value="0">
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="closeStockModal()" class="py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-50">取消</button>
+                <button onclick="confirmStockChange()" class="py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200">儲存變更</button>
+            </div>
         </div>
     </div>
 
@@ -159,7 +185,11 @@
         
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
         let syncQueue = JSON.parse(localStorage.getItem('sync_queue')) || [];
+        let stocks = JSON.parse(localStorage.getItem('stocks')) || {
+            "P1-磁懸浮": 10, "P2-帆布袋": 50, "P3-毛巾": 100, "P4-鎖匙扣": 100
+        };
         let isSyncing = false;
+        let currentEditingStockKey = null;
 
         function init() {
             lucide.createIcons();
@@ -172,6 +202,9 @@
                 qtySelect.appendChild(opt);
             }
 
+            // 監聽已用成本變動
+            document.getElementById('initialBudget').addEventListener('input', saveAndRender);
+
             updateStatus();
             render();
             processQueue();
@@ -180,7 +213,41 @@
             window.addEventListener('offline', updateStatus);
         }
 
-        // 產品選擇時自動填入參考值，但允許修改售價
+        function renderStocks() {
+            const grid = document.getElementById('stockGrid');
+            grid.innerHTML = '';
+            Object.keys(stocks).forEach(key => {
+                const btn = document.createElement('button');
+                btn.onclick = () => openStockModal(key);
+                btn.className = "flex flex-col items-center bg-white border border-slate-100 py-2 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all";
+                btn.innerHTML = `
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">${key.split('-')[0]}</span>
+                    <span class="text-sm font-black text-slate-700">${stocks[key]}</span>
+                `;
+                grid.appendChild(btn);
+            });
+        }
+
+        function openStockModal(key) {
+            currentEditingStockKey = key;
+            document.getElementById('targetProductName').textContent = key;
+            document.getElementById('newStockCount').value = stocks[key];
+            document.getElementById('stockModal').classList.remove('hidden');
+        }
+
+        function closeStockModal() {
+            document.getElementById('stockModal').classList.add('hidden');
+        }
+
+        function confirmStockChange() {
+            const newVal = parseInt(document.getElementById('newStockCount').value);
+            if (!isNaN(newVal)) {
+                stocks[currentEditingStockKey] = newVal;
+                saveAndRender();
+                closeStockModal();
+            }
+        }
+
         document.getElementById('productSelect').addEventListener('change', function() {
             const priceInput = document.getElementById('unitPrice');
             const costInput = document.getElementById('unitCost');
@@ -188,58 +255,50 @@
             
             if (this.value === 'other') {
                 otherField.classList.remove('hidden');
-                priceInput.value = '';
-                costInput.value = '';
-                priceInput.readOnly = false;
-                costInput.readOnly = false;
+                priceInput.value = ''; costInput.value = '';
+                priceInput.readOnly = false; costInput.readOnly = false;
                 priceInput.focus();
             } else {
                 otherField.classList.add('hidden');
-                const price = this.options[this.selectedIndex].dataset.price;
-                const cost = this.options[this.selectedIndex].dataset.cost;
-                priceInput.value = price;
-                costInput.value = cost;
-                
-                // 核心修改：售價不再 readOnly，方便折扣或調價
+                priceInput.value = this.options[this.selectedIndex].dataset.price;
+                costInput.value = this.options[this.selectedIndex].dataset.cost;
                 priceInput.readOnly = false;
-                // 成本通常不常變動，保持 readonly 減少誤觸，若需修改可用 "其他"
-                costInput.readOnly = true; 
+                costInput.readOnly = true;
             }
         });
 
         document.getElementById('transactionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const productVal = document.getElementById('productSelect').value;
+            const finalProduct = productVal === 'other' ? document.getElementById('customName').value : productVal;
             const price = parseFloat(document.getElementById('unitPrice').value);
             const cost = parseFloat(document.getElementById('unitCost').value);
             const qty = parseInt(document.getElementById('quantity').value);
             
-            const totalRevenue = price * qty;
-            const totalCost = cost * qty;
-            const profit = totalRevenue - totalCost;
-
             const record = {
                 id: "ID-" + Date.now(),
                 date: document.getElementById('date').value,
-                product: productVal === 'other' ? document.getElementById('customName').value : productVal,
+                product: finalProduct,
                 quantity: qty,
                 price: price,
                 cost: cost,
-                total: totalRevenue,
-                totalCost: totalCost,
-                profit: profit,
+                total: price * qty,
+                totalCost: cost * qty,
+                profit: (price - cost) * qty,
                 status: 'active'
             };
 
+            // 自動扣減庫存
+            if (stocks[finalProduct] !== undefined) {
+                stocks[finalProduct] = Math.max(0, stocks[finalProduct] - qty);
+            }
+
             transactions.unshift(record);
             syncQueue.push(record);
-            save();
-            render();
+            saveAndRender();
             processQueue();
             
-            // 重置
-            if(productVal === 'other') document.getElementById('customName').value = '';
-            document.getElementById('transactionForm').reset();
+            this.reset();
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
             document.getElementById('otherField').classList.add('hidden');
         });
@@ -248,25 +307,18 @@
             if(confirm('確定要刪除這筆交易記錄嗎？')) {
                 const idx = transactions.findIndex(t => t.id === id);
                 if(idx > -1) {
-                    const deletedItem = {...transactions[idx], status: 'del', total: 0, totalCost: 0, profit: 0};
+                    const deletedItem = {...transactions[idx], status: 'del'};
                     transactions.splice(idx, 1);
                     syncQueue.push(deletedItem);
-                    save();
-                    render();
+                    saveAndRender();
                     processQueue();
                 }
             }
         };
 
         async function processQueue() {
-            if (syncQueue.length === 0 || !navigator.onLine || isSyncing) {
-                updateQueueUI();
-                return;
-            }
-            
+            if (syncQueue.length === 0 || !navigator.onLine || isSyncing) return;
             isSyncing = true;
-            document.getElementById('syncSpinner').classList.remove('hidden');
-            
             while(syncQueue.length > 0 && navigator.onLine) {
                 const item = syncQueue[0];
                 try {
@@ -277,94 +329,92 @@
                     });
                     syncQueue.shift();
                     save();
-                    updateQueueUI();
-                } catch (e) {
-                    break;
-                }
+                } catch (e) { break; }
             }
-            
             isSyncing = false;
-            document.getElementById('syncSpinner').classList.add('hidden');
-            updateQueueUI();
         }
 
         function render() {
+            renderStocks();
             const list = document.getElementById('recordList');
             const empty = document.getElementById('emptyState');
+            const initialCost = parseFloat(document.getElementById('initialBudget').value) || 0;
             list.innerHTML = '';
             
-            let totalRevSum = 0;
-            let totalCostSum = 0;
-            let totalProfitSum = 0;
+            let totalRev = 0, totalSoldCost = 0, totalProfit = 0;
 
-            if(transactions.length === 0) {
-                empty.classList.remove('hidden');
-            } else {
+            if(transactions.length === 0) empty.classList.remove('hidden');
+            else {
                 empty.classList.add('hidden');
                 transactions.forEach(item => {
-                    totalRevSum += item.total;
-                    totalCostSum += item.totalCost;
-                    totalProfitSum += item.profit;
-
+                    totalRev += item.total;
+                    totalSoldCost += item.totalCost;
+                    totalProfit += item.profit;
                     const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-slate-50/80 transition-colors';
+                    tr.className = 'hover:bg-slate-50 transition-colors';
                     tr.innerHTML = `
                         <td class="px-6 py-5 text-[11px] text-slate-400 font-bold">${item.date}</td>
                         <td class="px-6 py-5">
                             <div class="font-bold text-slate-800 text-sm">${item.product}</div>
-                            <div class="text-[10px] text-slate-400">數量: x${item.quantity}</div>
+                            <div class="text-[10px] text-slate-400 italic">數量 x${item.quantity}</div>
                         </td>
                         <td class="px-6 py-5">
-                            <div class="text-[11px] font-medium text-blue-500">售：$${item.price.toLocaleString()}</div>
-                            <div class="text-[11px] font-medium text-slate-400">本：$${item.cost.toLocaleString()}</div>
+                            <div class="text-[11px] font-medium text-blue-600">收入: $${item.total.toLocaleString()}</div>
+                            <div class="text-[11px] font-medium text-slate-400">成本: $${item.totalCost.toLocaleString()}</div>
                         </td>
                         <td class="px-6 py-5 text-right">
                             <div class="font-black ${item.profit >= 0 ? 'profit-text' : 'loss-text'} text-sm">
                                 ${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString()}
                             </div>
-                            <div class="text-[9px] text-slate-300 uppercase font-bold tracking-tighter">Net Profit</div>
                         </td>
                         <td class="px-6 py-5 text-center">
-                            <button onclick="deleteRecord('${item.id}')" class="text-slate-300 hover:text-red-500 p-2 rounded-xl hover:bg-red-50 transition-all">
-                                <i data-lucide="x" size="16"></i>
-                            </button>
+                            <button onclick="deleteRecord('${item.id}')" class="text-slate-200 hover:text-red-500 p-2"><i data-lucide="trash-2" size="14"></i></button>
                         </td>
                     `;
                     list.appendChild(tr);
                 });
             }
             
-            document.getElementById('totalRevenue').textContent = `$${totalRevSum.toLocaleString()}`;
-            document.getElementById('totalCost').textContent = `$${totalCostSum.toLocaleString()}`;
-            document.getElementById('totalProfit').textContent = `$${totalProfitSum.toLocaleString()}`;
+            document.getElementById('totalRevenue').textContent = `$${totalRev.toLocaleString()}`;
+            document.getElementById('totalCost').textContent = `$${totalSoldCost.toLocaleString()}`;
+            document.getElementById('totalProfit').textContent = `$${totalProfit.toLocaleString()}`;
+            
+            // 淨利 = 累積總收入 - 已用總成本
+            const netProfit = totalRev - initialCost;
+            const netProfitEl = document.getElementById('netProfitDisplay');
+            netProfitEl.textContent = `$${netProfit.toLocaleString()}`;
+            
+            if (netProfit < 0) {
+                netProfitEl.className = 'text-xl font-black text-red-500 animate-pulse';
+            } else {
+                netProfitEl.className = 'text-xl font-black text-emerald-600';
+            }
+            
             lucide.createIcons();
         }
 
         function updateStatus() {
             const el = document.getElementById('networkStatus');
-            if(navigator.onLine) {
-                el.innerHTML = `<span class="text-xs bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold flex items-center gap-1"><i data-lucide="zap" size="12"></i> 在線同步中</span>`;
-            } else {
-                el.innerHTML = `<span class="text-xs bg-amber-100 text-amber-600 px-3 py-1 rounded-full font-bold flex items-center gap-1"><i data-lucide="cloud-off" size="12"></i> 離線暫存模式</span>`;
-            }
+            el.innerHTML = navigator.onLine 
+                ? `<span class="text-[10px] bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold">同步中</span>`
+                : `<span class="text-[10px] bg-red-100 text-red-600 px-3 py-1 rounded-full font-bold">離線中</span>`;
             lucide.createIcons();
-        }
-
-        function updateQueueUI() {
-            const card = document.getElementById('queueCard');
-            const count = document.getElementById('queueCount');
-            if(syncQueue.length > 0) {
-                card.classList.remove('hidden');
-                count.textContent = syncQueue.length;
-            } else {
-                card.classList.add('hidden');
-            }
         }
 
         function save() {
             localStorage.setItem('transactions', JSON.stringify(transactions));
             localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
+            localStorage.setItem('stocks', JSON.stringify(stocks));
+            localStorage.setItem('saved_initial_cost', document.getElementById('initialBudget').value);
         }
+
+        function saveAndRender() {
+            save();
+            render();
+        }
+
+        const savedC = localStorage.getItem('saved_initial_cost');
+        if(savedC) document.getElementById('initialBudget').value = savedC;
 
         init();
     </script>
