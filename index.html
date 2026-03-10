@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易管理系統 - 視覺強化版</title>
+    <title>交易管理系統 - 庫存售價同步版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -41,7 +41,7 @@
             <div class="px-2">
                 <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
                     營運管理控制台
-                    <span class="text-xs font-normal bg-green-100 text-green-600 px-2 py-1 rounded-full">雲端同步中</span>
+                    <span class="text-xs font-normal bg-green-100 text-green-600 px-2 py-1 rounded-full text-nowrap">數據自動連動中</span>
                 </h1>
                 <nav class="flex p-1 bg-slate-200/50 rounded-xl w-fit mt-4">
                     <button onclick="switchTab('management')" id="tab-management" class="px-6 py-2 text-sm font-bold rounded-lg transition-all tab-active">交易管理</button>
@@ -89,9 +89,9 @@
                     </div>
                     <p class="text-2xl font-black text-emerald-600" id="totalProfit">$0</p>
                 </div>
-                <div class="glass-card p-5 rounded-2xl border-b-4 border-indigo-500">
+                <div class="glass-card p-5 rounded-2xl border-b-4 border-indigo-500 col-span-2 lg:col-span-1">
                     <div class="flex justify-between items-start mb-2">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">庫存概況</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">庫存概況 (點擊調整)</p>
                         <i data-lucide="box" class="w-4 h-4 text-indigo-500"></i>
                     </div>
                     <div id="stockGrid" class="grid grid-cols-4 gap-1 mt-1"></div>
@@ -111,7 +111,6 @@
                                 </select>
                             </div>
 
-                            <!-- Package 展開區域 -->
                             <div id="packageField" class="hidden space-y-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 ring-1 ring-blue-200/50">
                                 <p class="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-2">
                                     <i data-lucide="package-plus" class="w-3 h-3"></i> Package 組合配置
@@ -187,28 +186,20 @@
         <!-- [分頁 2: 數據報表] -->
         <div id="page-reports" class="tab-content hidden animate-in slide-in-from-bottom-4 duration-500">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- 強化後的利潤圖表 -->
                 <div class="glass-card p-8 rounded-3xl lg:col-span-2">
                     <div class="flex justify-between items-center mb-10">
                         <h3 class="font-bold flex items-center gap-2 text-lg"><i data-lucide="bar-chart-big" class="text-blue-500"></i> 近期利潤趨勢 (Daily Profit)</h3>
-                        <div class="flex items-center gap-4 text-[10px] font-bold text-slate-400">
-                            <span class="flex items-center gap-1"><span class="w-2 h-2 bg-blue-500 rounded-full"></span> 毛利額</span>
-                        </div>
                     </div>
-                    <div class="h-72 relative chart-grid pt-10 px-4 flex items-end gap-4" id="profitChartContainer">
-                        <!-- 圖表動態插入 -->
-                    </div>
+                    <div class="h-72 relative chart-grid pt-10 px-4 flex items-end gap-4" id="profitChartContainer"></div>
                 </div>
 
-                <!-- 庫存狀態 -->
                 <div class="glass-card p-8 rounded-3xl">
                     <h3 class="font-bold mb-8 flex items-center gap-2 text-lg"><i data-lucide="shield-check" class="text-indigo-500"></i> 庫存水位監控</h3>
                     <div id="inventoryReportList" class="space-y-6"></div>
                 </div>
 
-                <!-- 產品利潤排行 -->
                 <div class="glass-card p-8 rounded-3xl lg:col-span-3">
-                    <h3 class="font-bold mb-8 flex items-center gap-2 text-lg"><i data-lucide="award" class="text-amber-500"></i> 產品利潤貢獻排行 (Profit Contribution)</h3>
+                    <h3 class="font-bold mb-8 flex items-center gap-2 text-lg"><i data-lucide="award" class="text-amber-500"></i> 產品利潤貢獻排行</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="productProfitRank"></div>
                 </div>
             </div>
@@ -218,21 +209,27 @@
     <!-- 編輯彈窗 -->
     <div id="editModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-6">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl scale-in-center">
-            <h3 class="text-xl font-bold mb-1 text-slate-800">參數調整</h3>
+            <h3 class="text-xl font-bold mb-1 text-slate-800">產品參數調整</h3>
             <p class="text-xs text-slate-400 mb-8" id="targetProductName"></p>
             <div class="space-y-6 mb-8">
                 <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">校準庫存數量</label>
-                    <input type="number" id="editStockCount" class="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-black text-center focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">庫存數量</label>
+                    <input type="number" id="editStockCount" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black text-center focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">預設單位成本 (HKD)</label>
-                    <input type="number" step="0.01" id="editUnitCost" class="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-black text-center text-emerald-600 focus:ring-2 focus:ring-emerald-500 outline-none">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">預設售價</label>
+                        <input type="number" step="0.01" id="editUnitPrice" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-center text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">預設成本</label>
+                        <input type="number" step="0.01" id="editUnitCost" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-center text-emerald-600 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <button onclick="closeEditModal()" class="py-4 font-bold text-slate-400 hover:text-slate-600 transition-colors">取消</button>
-                <button onclick="confirmEditChange()" class="py-4 font-bold bg-blue-600 text-white rounded-2xl shadow-lg hover:bg-blue-700 transition-all active:scale-95">更新資料</button>
+                <button onclick="confirmEditChange()" class="py-4 font-bold bg-blue-600 text-white rounded-2xl shadow-lg hover:bg-blue-700 transition-all active:scale-95">更新同步</button>
             </div>
         </div>
     </div>
@@ -269,7 +266,7 @@
             select.innerHTML = '<option value="" disabled selected>請選擇項目...</option>';
             Object.keys(productSettings).forEach(key => {
                 const opt = document.createElement('option');
-                opt.value = key; opt.textContent = `${key} (剩: ${stocks[key]})`;
+                opt.value = key; opt.textContent = `${key} (剩: ${stocks[key]}, $${productSettings[key].price})`;
                 if (stocks[key] <= 0) opt.disabled = true;
                 select.appendChild(opt);
             });
@@ -327,89 +324,34 @@
             }
         };
 
-        // --- 視覺強化報表邏輯 ---
-        function renderReports() {
-            // 1. 利潤趨勢圖 (強化座標與視覺)
-            const chartContainer = document.getElementById('profitChartContainer');
-            const daily = {};
-            transactions.forEach(t => daily[t.date] = (daily[t.date] || 0) + t.profit);
-            
-            const dates = Object.keys(daily).sort().slice(-7); // 取最近7天
-            const values = dates.map(d => daily[d]);
-            const maxVal = Math.max(...values, 500); // 最小刻度 500
+        // --- 核心邏輯：刪除並恢復庫存 ---
+        window.deleteRecord = (id) => {
+            const record = transactions.find(t => t.id === id);
+            if(!record) return;
 
-            chartContainer.innerHTML = dates.map((d, i) => {
-                const h = (daily[d] / maxVal) * 100;
-                const isPositive = daily[d] >= 0;
-                return `
-                    <div class="flex-1 flex flex-col items-center group relative h-full">
-                        <div class="absolute -top-6 text-[10px] font-black text-blue-600 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                            $${Math.round(daily[d])}
-                        </div>
-                        <div class="w-full max-w-[40px] bg-slate-100/50 rounded-t-xl relative flex items-end h-full overflow-hidden">
-                            <div class="w-full bg-gradient-to-t ${isPositive ? 'from-blue-600 to-blue-400' : 'from-red-600 to-red-400'} rounded-t-lg bar-transition" 
-                                 style="height:${Math.max(4, Math.abs(h))}%">
-                            </div>
-                        </div>
-                        <div class="text-[9px] font-bold text-slate-400 mt-4 whitespace-nowrap">${d.split('-').slice(1).join('/')}</div>
-                    </div>
-                `;
-            }).join('');
+            if(confirm(`確認移除這筆金額 $${record.total} 的交易？\n庫存將會自動歸還。`)) {
+                // 1. 恢復庫存
+                if (record.rawMapping) {
+                    // 如果是普通產品或組合包
+                    Object.keys(record.rawMapping).forEach(prodKey => {
+                        if (stocks[prodKey] !== undefined) {
+                            stocks[prodKey] += record.rawMapping[prodKey];
+                        }
+                    });
+                }
+                
+                // 2. 刪除紀錄
+                transactions = transactions.filter(t => t.id !== id);
+                saveAndRender();
+                initProductSelect();
+            }
+        };
 
-            // 2. 庫存水位
-            const inventory = document.getElementById('inventoryReportList');
-            inventory.innerHTML = Object.keys(stocks).map(key => {
-                const ratio = Math.min(100, (stocks[key] / 100) * 100);
-                const colorClass = ratio < 20 ? 'bg-red-500' : (ratio < 50 ? 'bg-amber-500' : 'bg-blue-500');
-                return `
-                    <div class="space-y-2">
-                        <div class="flex justify-between text-[11px] font-bold">
-                            <span class="text-slate-700">${key}</span>
-                            <span class="${ratio < 20 ? 'text-red-500 animate-pulse' : 'text-slate-400'}">${stocks[key]} pcs</span>
-                        </div>
-                        <div class="h-2 w-full bg-slate-100 rounded-full">
-                            <div class="h-full ${colorClass} rounded-full transition-all duration-1000" style="width:${ratio}%"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // 3. 產品貢獻排行 (強化對比)
-            const rank = document.getElementById('productProfitRank');
-            const analysis = {};
-            transactions.forEach(t => {
-                const name = t.product.includes('📦') ? '組合套裝' : t.product;
-                if(!analysis[name]) analysis[name] = { profit: 0, count: 0 };
-                analysis[name].profit += t.profit;
-                analysis[name].count += t.quantity;
-            });
-            
-            const sorted = Object.keys(analysis).sort((a,b) => analysis[b].profit - analysis[a].profit);
-            const totalProfit = sorted.reduce((sum, k) => sum + Math.max(0, analysis[k].profit), 0) || 1;
-
-            rank.innerHTML = sorted.map((name, i) => {
-                const perc = Math.max(0, (analysis[name].profit / totalProfit) * 100);
-                return `
-                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center font-black text-slate-300 text-sm">${i+1}</div>
-                            <span class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-600">利潤佔比 ${Math.round(perc)}%</span>
-                        </div>
-                        <p class="text-sm font-bold text-slate-800 truncate mb-1">${name}</p>
-                        <p class="text-2xl font-black text-slate-900 mb-4">$${Math.round(analysis[name].profit).toLocaleString()}</p>
-                        <div class="h-1.5 w-full bg-slate-50 rounded-full">
-                            <div class="h-full bg-blue-500 rounded-full" style="width:${perc}%"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // --- 數據處理 ---
+        // --- 核心邏輯：提交交易 ---
         document.getElementById('transactionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const productType = document.getElementById('productSelect').value;
-            let finalName = "", itemsToDeduct = {};
+            let finalName = "", rawMapping = {};
             const qty = parseInt(document.getElementById('quantity').value);
 
             if (productType === 'package') {
@@ -418,7 +360,7 @@
                     const q = parseInt(input.value) || 0;
                     if (q > 0) { 
                         items.push(`${input.dataset.pkgKey.split('-')[0]}x${q}`); 
-                        itemsToDeduct[input.dataset.pkgKey] = q; 
+                        rawMapping[input.dataset.pkgKey] = q; 
                     }
                 });
                 if(items.length === 0) return;
@@ -427,7 +369,7 @@
                 finalName = "自定義項目";
             } else {
                 finalName = productType; 
-                itemsToDeduct[productType] = qty;
+                rawMapping[productType] = qty;
             }
 
             const totalRev = parseFloat(document.getElementById('unitPrice').value) * (productType === 'package' ? 1 : qty);
@@ -440,10 +382,11 @@
                 quantity: productType === 'package' ? 1 : qty,
                 total: totalRev,
                 totalCost: totalCost,
-                profit: totalRev - totalCost
+                profit: totalRev - totalCost,
+                rawMapping: rawMapping // 儲存庫存扣除詳情以便日後恢復
             };
 
-            Object.keys(itemsToDeduct).forEach(key => stocks[key] -= itemsToDeduct[key]);
+            Object.keys(rawMapping).forEach(key => stocks[key] -= rawMapping[key]);
             transactions.unshift(record);
             saveAndRender();
             this.reset();
@@ -451,22 +394,16 @@
             initProductSelect(); initPackageList();
         });
 
-        window.deleteRecord = (id) => {
-            if(confirm('確認移除此筆交易？')) {
-                transactions = transactions.filter(t => t.id !== id);
-                saveAndRender();
-            }
-        };
-
+        // --- 渲染函數 ---
         function render() {
             renderStocks();
             const list = document.getElementById('recordList');
             const empty = document.getElementById('emptyState');
             list.innerHTML = '';
             
-            let tRev = 0, tCost = 0, tProfit = 0;
+            let tRev = 0, tCost = 0;
             transactions.forEach(item => {
-                tRev += item.total; tCost += item.totalCost; tProfit += item.profit;
+                tRev += item.total; tCost += item.totalCost;
                 list.innerHTML += `
                     <tr class="hover:bg-slate-50/50 transition-colors">
                         <td class="px-8 py-5 text-slate-400 font-bold text-[10px] uppercase tracking-tighter">${item.date}</td>
@@ -489,10 +426,9 @@
 
             document.getElementById('recordCount').textContent = `${transactions.length} 筆紀錄`;
             empty.classList.toggle('hidden', transactions.length > 0);
-
             document.getElementById('totalRevenue').textContent = `$${tRev.toLocaleString()}`;
             document.getElementById('totalCost').textContent = `$${tCost.toLocaleString()}`;
-            document.getElementById('totalProfit').textContent = `$${tProfit.toLocaleString()}`;
+            document.getElementById('totalProfit').textContent = `$${(tRev - tCost).toLocaleString()}`;
             
             const initial = parseFloat(document.getElementById('initialBudget').value) || 0;
             const net = tRev - initial;
@@ -508,10 +444,12 @@
             const grid = document.getElementById('stockGrid');
             grid.innerHTML = Object.keys(stocks).map(key => {
                 const isLow = stocks[key] < 5;
+                const p = productSettings[key];
                 return `
-                    <button type="button" onclick="openEditModal('${key}')" class="bg-white border ${isLow ? 'border-red-200 bg-red-50' : 'border-slate-100'} p-1 rounded-lg hover:border-blue-300 transition-all">
-                        <span class="block text-[6px] text-slate-400 font-bold truncate">${key.split('-')[0]}</span>
+                    <button type="button" onclick="openEditModal('${key}')" class="bg-white border ${isLow ? 'border-red-200 bg-red-50' : 'border-slate-100'} p-1 rounded-lg hover:border-blue-300 transition-all flex flex-col items-center">
+                        <span class="block text-[6px] text-slate-400 font-bold truncate w-full">${key.split('-')[0]}</span>
                         <span class="block text-[10px] font-black ${isLow ? 'text-red-600' : 'text-slate-700'}">${stocks[key]}</span>
+                        <span class="block text-[6px] text-blue-500 font-medium">$${p.price}</span>
                     </button>
                 `;
             }).join('');
@@ -521,12 +459,14 @@
             currentEditingKey = key;
             document.getElementById('targetProductName').textContent = "正在調整產品： " + key;
             document.getElementById('editStockCount').value = stocks[key];
+            document.getElementById('editUnitPrice').value = productSettings[key].price;
             document.getElementById('editUnitCost').value = productSettings[key].cost;
             document.getElementById('editModal').classList.remove('hidden');
         };
         window.closeEditModal = () => document.getElementById('editModal').classList.add('hidden');
         window.confirmEditChange = () => {
             stocks[currentEditingKey] = parseInt(document.getElementById('editStockCount').value);
+            productSettings[currentEditingKey].price = parseFloat(document.getElementById('editUnitPrice').value);
             productSettings[currentEditingKey].cost = parseFloat(document.getElementById('editUnitCost').value);
             saveAndRender(); 
             closeEditModal(); 
@@ -541,6 +481,70 @@
             if (tabId === 'reports') renderReports();
             lucide.createIcons();
         };
+
+        function renderReports() {
+            const chartContainer = document.getElementById('profitChartContainer');
+            const daily = {};
+            transactions.forEach(t => daily[t.date] = (daily[t.date] || 0) + t.profit);
+            const dates = Object.keys(daily).sort().slice(-7);
+            const values = dates.map(d => daily[d]);
+            const maxVal = Math.max(...values, 500);
+
+            chartContainer.innerHTML = dates.map((d, i) => {
+                const h = (daily[d] / maxVal) * 100;
+                const isPositive = daily[d] >= 0;
+                return `
+                    <div class="flex-1 flex flex-col items-center group relative h-full">
+                        <div class="absolute -top-6 text-[10px] font-black text-blue-600 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">$${Math.round(daily[d])}</div>
+                        <div class="w-full max-w-[40px] bg-slate-100/50 rounded-t-xl relative flex items-end h-full overflow-hidden">
+                            <div class="w-full bg-gradient-to-t ${isPositive ? 'from-blue-600 to-blue-400' : 'from-red-600 to-red-400'} rounded-t-lg bar-transition" style="height:${Math.max(4, Math.abs(h))}%"></div>
+                        </div>
+                        <div class="text-[9px] font-bold text-slate-400 mt-4 whitespace-nowrap">${d.split('-').slice(1).join('/')}</div>
+                    </div>
+                `;
+            }).join('');
+
+            const inventory = document.getElementById('inventoryReportList');
+            inventory.innerHTML = Object.keys(stocks).map(key => {
+                const ratio = Math.min(100, (stocks[key] / 100) * 100);
+                return `
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[11px] font-bold">
+                            <span class="text-slate-700">${key}</span>
+                            <span class="${ratio < 20 ? 'text-red-500 animate-pulse' : 'text-slate-400'}">${stocks[key]} pcs</span>
+                        </div>
+                        <div class="h-2 w-full bg-slate-100 rounded-full">
+                            <div class="h-full ${ratio < 20 ? 'bg-red-500' : 'bg-blue-500'} rounded-full transition-all duration-1000" style="width:${ratio}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const rank = document.getElementById('productProfitRank');
+            const analysis = {};
+            transactions.forEach(t => {
+                const name = t.product.includes('📦') ? '組合套裝' : t.product;
+                if(!analysis[name]) analysis[name] = { profit: 0 };
+                analysis[name].profit += t.profit;
+            });
+            const sorted = Object.keys(analysis).sort((a,b) => analysis[b].profit - analysis[a].profit);
+            const totalProfit = sorted.reduce((sum, k) => sum + Math.max(0, analysis[k].profit), 0) || 1;
+
+            rank.innerHTML = sorted.map((name, i) => {
+                const perc = Math.max(0, (analysis[name].profit / totalProfit) * 100);
+                return `
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center font-black text-slate-300 text-sm">${i+1}</div>
+                            <span class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-600">佔比 ${Math.round(perc)}%</span>
+                        </div>
+                        <p class="text-sm font-bold text-slate-800 truncate mb-1">${name}</p>
+                        <p class="text-2xl font-black text-slate-900 mb-4">$${Math.round(analysis[name].profit).toLocaleString()}</p>
+                        <div class="h-1.5 w-full bg-slate-50 rounded-full"><div class="h-full bg-blue-500 rounded-full" style="width:${perc}%"></div></div>
+                    </div>
+                `;
+            }).join('');
+        }
 
         function saveAndRender() {
             localStorage.setItem('transactions', JSON.stringify(transactions));
