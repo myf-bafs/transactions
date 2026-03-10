@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易管理系統 - 離線補傳專業版</title>
+    <title>交易管理系統 - 利潤分析版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -19,28 +19,44 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
         }
-        [v-cloak] { display: none; }
+        .profit-text { color: #10b981; } /* Green-500 */
+        .loss-text { color: #ef4444; }   /* Red-500 */
     </style>
 </head>
 <body class="min-h-screen text-slate-800 antialiased p-4 md:p-8">
     <div class="max-w-6xl mx-auto">
         <!-- 狀態欄與標題 -->
-        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
             <div>
                 <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
                     交易管理系統
                     <span id="networkStatus"></span>
                 </h1>
-                <p class="text-slate-500 text-sm mt-1">資料自動保存於本地並支援離線補傳</p>
+                <p class="text-slate-500 text-sm mt-1">即時計算成本與利潤，支援離線補傳</p>
             </div>
             
-            <div class="glass-card px-8 py-5 rounded-3xl flex items-center gap-6">
-                <div class="bg-blue-500/10 p-3 rounded-2xl text-blue-600">
-                    <i data-lucide="dollar-sign"></i>
+            <!-- 數據看板組 -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full lg:w-auto">
+                <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4">
+                    <div class="bg-blue-100 p-2 rounded-lg text-blue-600"><i data-lucide="trending-up" size="20"></i></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">總收入</p>
+                        <p class="text-xl font-black text-slate-700" id="totalRevenue">$0</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">本地收入總計</p>
-                    <p class="text-3xl font-black text-blue-600" id="grandTotalDisplay">$0</p>
+                <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4">
+                    <div class="bg-slate-100 p-2 rounded-lg text-slate-600"><i data-lucide="package" size="20"></i></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">總成本</p>
+                        <p class="text-xl font-black text-slate-700" id="totalCost">$0</p>
+                    </div>
+                </div>
+                <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 border-b-4 border-emerald-500">
+                    <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="dollar-sign" size="20"></i></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">預估利潤</p>
+                        <p class="text-xl font-black text-emerald-600" id="totalProfit">$0</p>
+                    </div>
                 </div>
             </div>
         </header>
@@ -49,41 +65,47 @@
             <!-- 表單區 -->
             <aside class="lg:col-span-4 space-y-6">
                 <div class="glass-card p-8 rounded-3xl">
-                    <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-500 pl-4">新增交易</h2>
-                    <form id="transactionForm" class="space-y-5">
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase">產品名稱</label>
-                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
+                    <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-500 pl-4">新增交易記錄</h2>
+                    <form id="transactionForm" class="space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">產品名稱</label>
+                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
                                 <option value="" disabled selected>請選擇產品...</option>
-                                <option value="毛巾" data-price="25">毛巾 ($25)</option>
-                                <option value="鎖匙扣" data-price="20">鎖匙扣 ($20)</option>
+                                <option value="毛巾" data-price="25" data-cost="10">毛巾 (售$25/本$10)</option>
+                                <option value="鎖匙扣" data-price="20" data-cost="8">鎖匙扣 (售$20/本$8)</option>
                                 <option value="other">＋ 其他產品 (手動輸入)</option>
                             </select>
                         </div>
 
-                        <div id="otherField" class="hidden space-y-2 animate-in fade-in">
-                            <label class="text-xs font-bold text-slate-500 uppercase">自定義名稱</label>
-                            <input type="text" id="customName" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none" placeholder="輸入產品名稱">
+                        <div id="otherField" class="hidden space-y-1 animate-in fade-in">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">自定義名稱</label>
+                            <input type="text" id="customName" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="輸入產品名稱">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase">單價</label>
-                                <input type="number" id="unitPrice" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">單個售價</label>
+                                <input type="number" id="unitPrice" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="0">
                             </div>
-                            <div class="space-y-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase">數量</label>
-                                <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none"></select>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">單個成本</label>
+                                <input type="number" id="unitCost" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="0">
                             </div>
                         </div>
 
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase">交易日期</label>
-                            <input type="date" id="date" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">數量</label>
+                                <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"></select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">交易日期</label>
+                                <input type="date" id="date" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+                            </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg transition active:scale-95 flex justify-center items-center gap-2">
-                            <i data-lucide="plus-circle" size="18"></i> 確認提交
+                        <button type="submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition duration-300 active:scale-95 flex justify-center items-center gap-2 mt-4">
+                            <i data-lucide="plus-circle" size="18"></i> 確認提交交易
                         </button>
                     </form>
                 </div>
@@ -96,34 +118,33 @@
                         </span>
                         <div id="syncSpinner" class="hidden animate-spin h-4 w-4 border-2 border-amber-600 border-t-transparent rounded-full"></div>
                     </div>
-                    <p class="text-amber-600 text-[10px] mt-2 italic">恢復連線後將自動補傳至雲端。</p>
                 </div>
             </aside>
 
             <!-- 列表區 -->
             <main class="lg:col-span-8">
-                <div class="glass-card rounded-3xl overflow-hidden min-h-[400px]">
-                    <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-white/50">
-                        <h2 class="text-lg font-bold">歷史交易清單</h2>
+                <div class="glass-card rounded-3xl overflow-hidden min-h-[500px] flex flex-col">
+                    <div class="p-8 border-b border-slate-100 bg-white/50">
+                        <h2 class="text-lg font-bold">歷史交易清單 (利潤分析)</h2>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto flex-grow">
                         <table class="w-full text-left">
                             <thead class="bg-slate-50/50">
                                 <tr class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                                    <th class="px-8 py-4">日期</th>
-                                    <th class="px-6 py-4">產品細節</th>
-                                    <th class="px-6 py-4">數量</th>
-                                    <th class="px-6 py-4 text-right">總計</th>
-                                    <th class="px-8 py-4 text-center">操作</th>
+                                    <th class="px-6 py-4">日期</th>
+                                    <th class="px-6 py-4">產品內容</th>
+                                    <th class="px-6 py-4">收支明細 (單價)</th>
+                                    <th class="px-6 py-4 text-right">利潤</th>
+                                    <th class="px-6 py-4 text-center">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="recordList" class="divide-y divide-slate-100">
-                                <!-- 內容由 JS 動態生成 -->
+                                <!-- JS 動態填充 -->
                             </tbody>
                         </table>
-                        <div id="emptyState" class="hidden py-20 text-center text-slate-300">
-                            <i data-lucide="package" size="48" class="mx-auto mb-4 opacity-20"></i>
-                            <p>目前尚無記錄</p>
+                        <div id="emptyState" class="hidden py-32 text-center text-slate-300">
+                            <i data-lucide="layout-list" size="48" class="mx-auto mb-4 opacity-10"></i>
+                            <p class="font-medium text-slate-400">目前尚無任何交易記錄</p>
                         </div>
                     </div>
                 </div>
@@ -138,16 +159,12 @@
         let syncQueue = JSON.parse(localStorage.getItem('sync_queue')) || [];
         let isSyncing = false;
 
-        // 初始化
         function init() {
             lucide.createIcons();
-            
-            // 設定日期預設值
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
             
-            // 填充數量選單
             const qtySelect = document.getElementById('quantity');
-            for(let i=1; i<=50; i++) {
+            for(let i=1; i<=100; i++) {
                 const opt = document.createElement('option');
                 opt.value = i; opt.textContent = i;
                 qtySelect.appendChild(opt);
@@ -157,42 +174,54 @@
             render();
             processQueue();
 
-            // 監聽網路
             window.addEventListener('online', () => { updateStatus(); processQueue(); });
             window.addEventListener('offline', updateStatus);
         }
 
-        // 產品選擇邏輯
+        // 產品選擇時自動填入售價與成本
         document.getElementById('productSelect').addEventListener('change', function() {
             const priceInput = document.getElementById('unitPrice');
+            const costInput = document.getElementById('unitCost');
             const otherField = document.getElementById('otherField');
             
             if (this.value === 'other') {
                 otherField.classList.remove('hidden');
                 priceInput.value = '';
+                costInput.value = '';
                 priceInput.readOnly = false;
+                costInput.readOnly = false;
             } else {
                 otherField.classList.add('hidden');
                 const price = this.options[this.selectedIndex].dataset.price;
+                const cost = this.options[this.selectedIndex].dataset.cost;
                 priceInput.value = price;
+                costInput.value = cost;
                 priceInput.readOnly = true;
+                costInput.readOnly = true;
             }
         });
 
-        // 提交表單
         document.getElementById('transactionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const productVal = document.getElementById('productSelect').value;
-            const price = parseInt(document.getElementById('unitPrice').value);
+            const price = parseFloat(document.getElementById('unitPrice').value);
+            const cost = parseFloat(document.getElementById('unitCost').value);
             const qty = parseInt(document.getElementById('quantity').value);
             
+            const totalRevenue = price * qty;
+            const totalCost = cost * qty;
+            const profit = totalRevenue - totalCost;
+
             const record = {
                 id: "ID-" + Date.now(),
                 date: document.getElementById('date').value,
                 product: productVal === 'other' ? document.getElementById('customName').value : productVal,
                 quantity: qty,
                 price: price,
-                total: price * qty,
+                cost: cost,
+                total: totalRevenue,
+                totalCost: totalCost,
+                profit: profit,
                 status: 'active'
             };
 
@@ -205,12 +234,11 @@
             if(productVal === 'other') document.getElementById('customName').value = '';
         });
 
-        // 刪除
         window.deleteRecord = function(id) {
-            if(confirm('確定要刪除？')) {
+            if(confirm('確定要刪除這筆交易記錄嗎？')) {
                 const idx = transactions.findIndex(t => t.id === id);
                 if(idx > -1) {
-                    const deletedItem = {...transactions[idx], status: 'del', total: 0};
+                    const deletedItem = {...transactions[idx], status: 'del', total: 0, totalCost: 0, profit: 0};
                     transactions.splice(idx, 1);
                     syncQueue.push(deletedItem);
                     save();
@@ -220,7 +248,6 @@
             }
         };
 
-        // 隊列處理
         async function processQueue() {
             if (syncQueue.length === 0 || !navigator.onLine || isSyncing) {
                 updateQueueUI();
@@ -238,11 +265,11 @@
                         mode: 'no-cors',
                         body: JSON.stringify(item)
                     });
-                    syncQueue.shift(); // 成功才移除
+                    syncQueue.shift();
                     save();
                     updateQueueUI();
                 } catch (e) {
-                    break; // 失敗則跳出循環
+                    break;
                 }
             }
             
@@ -251,48 +278,64 @@
             updateQueueUI();
         }
 
-        // UI 渲染
         function render() {
             const list = document.getElementById('recordList');
             const empty = document.getElementById('emptyState');
             list.innerHTML = '';
             
-            let total = 0;
+            let totalRevSum = 0;
+            let totalCostSum = 0;
+            let totalProfitSum = 0;
+
             if(transactions.length === 0) {
                 empty.classList.remove('hidden');
             } else {
                 empty.classList.add('hidden');
                 transactions.forEach(item => {
-                    total += item.total;
+                    totalRevSum += item.total;
+                    totalCostSum += item.totalCost;
+                    totalProfitSum += item.profit;
+
                     const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-slate-50 transition-colors';
+                    tr.className = 'hover:bg-slate-50/80 transition-colors';
                     tr.innerHTML = `
-                        <td class="px-8 py-5 text-xs text-slate-400 font-medium">${item.date}</td>
+                        <td class="px-6 py-5 text-[11px] text-slate-400 font-bold">${item.date}</td>
                         <td class="px-6 py-5">
-                            <div class="font-bold text-slate-700">${item.product}</div>
-                            <div class="text-[10px] text-slate-400">$${item.price} / 單位</div>
+                            <div class="font-bold text-slate-800 text-sm">${item.product}</div>
+                            <div class="text-[10px] text-slate-400">數量: x${item.quantity}</div>
                         </td>
-                        <td class="px-6 py-5 text-sm">x${item.quantity}</td>
-                        <td class="px-6 py-5 text-right font-black text-blue-600">$${item.total.toLocaleString()}</td>
-                        <td class="px-8 py-5 text-center">
-                            <button onclick="deleteRecord('${item.id}')" class="text-slate-300 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all">
-                                <i data-lucide="trash-2" size="18"></i>
+                        <td class="px-6 py-5">
+                            <div class="text-[11px] font-medium text-blue-500">售：$${item.price}</div>
+                            <div class="text-[11px] font-medium text-slate-400">本：$${item.cost}</div>
+                        </td>
+                        <td class="px-6 py-5 text-right">
+                            <div class="font-black ${item.profit >= 0 ? 'profit-text' : 'loss-text'}">
+                                ${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString()}
+                            </div>
+                            <div class="text-[9px] text-slate-300 uppercase font-bold tracking-tighter">Net Profit</div>
+                        </td>
+                        <td class="px-6 py-5 text-center">
+                            <button onclick="deleteRecord('${item.id}')" class="text-slate-300 hover:text-red-500 p-2 rounded-xl hover:bg-red-50 transition-all">
+                                <i data-lucide="x" size="16"></i>
                             </button>
                         </td>
                     `;
                     list.appendChild(tr);
                 });
             }
-            document.getElementById('grandTotalDisplay').textContent = `$${total.toLocaleString()}`;
+            
+            document.getElementById('totalRevenue').textContent = `$${totalRevSum.toLocaleString()}`;
+            document.getElementById('totalCost').textContent = `$${totalCostSum.toLocaleString()}`;
+            document.getElementById('totalProfit').textContent = `$${totalProfitSum.toLocaleString()}`;
             lucide.createIcons();
         }
 
         function updateStatus() {
             const el = document.getElementById('networkStatus');
             if(navigator.onLine) {
-                el.innerHTML = `<span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="cloud-lightning" size="12"></i> 在線</span>`;
+                el.innerHTML = `<span class="text-xs bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold flex items-center gap-1"><i data-lucide="zap" size="12"></i> 在線同步中</span>`;
             } else {
-                el.innerHTML = `<span class="text-xs bg-amber-100 text-amber-600 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="cloud-off" size="12"></i> 離線模式</span>`;
+                el.innerHTML = `<span class="text-xs bg-amber-100 text-amber-600 px-3 py-1 rounded-full font-bold flex items-center gap-1"><i data-lucide="cloud-off" size="12"></i> 離線暫存模式</span>`;
             }
             lucide.createIcons();
         }
