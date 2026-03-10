@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易管理系統 - 離線同步版</title>
+    <title>營運管理控制台 - 數據分析版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,196 +11,217 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
-            background: #f8fafc;
+            background: #f1f5f9;
         }
         .glass-card {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
         }
-        .tab-active { @apply bg-white text-blue-600 shadow-md; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
+        .tab-active { @apply bg-white text-blue-600 shadow-sm border border-slate-200; }
+        
+        /* 摺疊動畫 */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
         }
+        .accordion-item.active .accordion-content {
+            max-height: 2000px;
+        }
+        .accordion-item.active .chevron-icon {
+            transform: rotate(180deg);
+        }
+        
         .sync-pending { @apply bg-amber-100 text-amber-600 animate-pulse; }
         .sync-online { @apply bg-green-100 text-green-600; }
         .sync-offline { @apply bg-slate-100 text-slate-400; }
     </style>
 </head>
-<body class="min-h-screen text-slate-800 antialiased p-3 md:p-6 pb-20 md:pb-6">
+<body class="min-h-screen text-slate-800 p-3 md:p-6 pb-24">
     <div class="max-w-7xl mx-auto">
         
-        <!-- 頂部導覽 -->
-        <header class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-8 gap-4">
-            <div class="px-2">
-                <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
-                    營運管理控制台
-                    <span id="syncStatus" class="text-[10px] font-normal px-2 py-1 rounded-full text-nowrap flex items-center gap-1 sync-offline">
-                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> 檢查網絡中...
+        <!-- Header -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4 px-2">
+            <div>
+                <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+                    營運數據中心
+                    <span id="syncStatus" class="text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 sync-offline">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> 離線
                     </span>
                 </h1>
-                <nav class="flex p-1 bg-slate-200/50 rounded-xl w-fit mt-4">
+                <nav class="flex p-1 bg-slate-200/50 rounded-xl w-fit mt-4 border border-slate-200">
                     <button onclick="switchTab('management')" id="tab-management" class="px-6 py-2 text-sm font-bold rounded-lg transition-all tab-active">交易管理</button>
-                    <button onclick="switchTab('reports')" id="tab-reports" class="px-6 py-2 text-sm font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">數據報表</button>
+                    <button onclick="switchTab('daily')" id="tab-daily" class="px-6 py-2 text-sm font-bold rounded-lg transition-all text-slate-500">每日明細</button>
+                    <button onclick="switchTab('reports')" id="tab-reports" class="px-6 py-2 text-sm font-bold rounded-lg transition-all text-slate-500">數據報表</button>
                 </nav>
             </div>
             
-            <div class="glass-card px-6 py-4 rounded-2xl border-l-4 border-blue-500 flex flex-row items-center justify-between gap-10">
+            <div class="glass-card px-6 py-4 rounded-2xl border-l-4 border-blue-500 flex items-center gap-8 shadow-sm">
                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">起始支出/預算 (HKD)</p>
-                    <div class="flex items-center gap-2">
-                        <span class="text-slate-400 font-bold">$</span>
-                        <input type="number" id="initialBudget" step="0.01" class="bg-transparent text-2xl font-black text-slate-800 outline-none w-32 focus:ring-1 focus:ring-blue-100 rounded" value="3962.74" onchange="render()">
-                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">起始支出 (HKD)</p>
+                    <input type="number" id="initialBudget" step="0.01" class="bg-transparent text-xl font-black text-slate-800 outline-none w-28" value="3962.74" onchange="render()">
                 </div>
-                <div class="h-10 w-px bg-slate-100"></div>
+                <div class="h-8 w-px bg-slate-200"></div>
                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">目前淨損益</p>
-                    <p class="text-2xl font-black" id="netProfitDisplay">$0</p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">當前淨利/損</p>
+                    <p class="text-xl font-black" id="netProfitDisplay">$0</p>
                 </div>
             </div>
         </header>
 
-        <!-- [交易管理分頁] -->
+        <!-- Page: Management -->
         <div id="page-management" class="tab-content">
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div class="glass-card p-5 rounded-2xl border-b-4 border-blue-500">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">總營業額</p>
+                <div class="glass-card p-5 rounded-2xl border-b-2 border-blue-500">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">總營業額</p>
                     <p class="text-2xl font-black text-slate-800" id="totalRevenue">$0</p>
                 </div>
-                <div class="glass-card p-5 rounded-2xl border-b-4 border-emerald-500">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">累積毛利</p>
+                <div class="glass-card p-5 rounded-2xl border-b-2 border-emerald-500">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">累積毛利</p>
                     <p class="text-2xl font-black text-emerald-600" id="totalProfit">$0</p>
                 </div>
-                <div class="glass-card p-5 rounded-2xl border-b-4 border-indigo-500 col-span-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">庫存與成本監控</p>
-                    <div id="stockGrid" class="grid grid-cols-4 gap-2 mt-1"></div>
+                <div class="glass-card p-5 rounded-2xl border-b-2 border-indigo-500 col-span-2">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
+                        <i data-lucide="package" class="w-3 h-3 text-indigo-500"></i> 即時庫存監控
+                    </p>
+                    <div id="stockGrid" class="grid grid-cols-4 gap-2"></div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <!-- 左側：輸入表單 -->
-                <aside class="lg:col-span-4">
-                    <div class="glass-card p-8 rounded-3xl sticky top-6">
-                        <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-500 pl-4">建立交易單</h2>
-                        <form id="transactionForm" class="space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <aside class="lg:col-span-5">
+                    <div class="glass-card p-8 rounded-3xl">
+                        <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-600 pl-4">新交易紀錄</h2>
+                        <form id="transactionForm" class="space-y-4">
                             <div>
-                                <label class="text-[11px] font-bold text-slate-500 uppercase mb-2 block">產品選擇</label>
-                                <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm appearance-none cursor-pointer" onchange="autoFillPrices()">
-                                </select>
+                                <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">產品類型</label>
+                                <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" onchange="autoFillPrices()"></select>
                             </div>
-
+                            
                             <div id="packageField" class="hidden space-y-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
-                                <p class="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-2">📦 套裝明細</p>
+                                <p class="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-2">📦 套裝配置</p>
                                 <div id="packageList" class="space-y-2"></div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="text-[11px] font-bold text-slate-500 uppercase mb-2 block">成交價</label>
+                                    <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">成交價格</label>
                                     <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-sm">
                                 </div>
                                 <div>
-                                    <label class="text-[11px] font-bold text-slate-500 uppercase mb-2 block">數量</label>
+                                    <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">成交數量</label>
                                     <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" onchange="autoFillPrices()"></select>
                                 </div>
                             </div>
 
                             <div>
-                                <label class="text-[11px] font-bold text-slate-500 uppercase mb-2 block">日期</label>
+                                <label class="text-[11px] font-bold text-slate-500 uppercase mb-1 block">交易日期</label>
                                 <input type="date" id="date" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm">
                             </div>
 
                             <input type="hidden" id="totalTransactionCost">
 
-                            <button type="submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-xl transition active:scale-95 flex justify-center items-center gap-2 mt-4">
-                                <i data-lucide="send" class="w-4 h-4"></i> 確認提交
+                            <button type="submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] mt-4">
+                                儲存紀錄
                             </button>
                         </form>
                     </div>
                 </aside>
 
-                <!-- 右側：歷史紀錄 -->
-                <main class="lg:col-span-8">
-                    <div class="glass-card rounded-3xl overflow-hidden h-full flex flex-col">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                            <h2 class="font-bold text-slate-800">歷史交易紀錄</h2>
-                            <div class="flex gap-2">
-                                <span id="syncIndicator" class="hidden text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
-                                    <i data-lucide="wifi-off" class="w-3 h-3"></i> 離線保存
-                                </span>
-                                <span class="text-[10px] text-slate-400 font-bold uppercase" id="recordCount">0 筆紀錄</span>
-                            </div>
+                <main class="lg:col-span-7">
+                    <div class="glass-card rounded-3xl overflow-hidden h-full min-h-[400px]">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white/80">
+                            <h2 class="font-bold text-slate-800">最近 5 筆交易</h2>
+                            <button onclick="switchTab('daily')" class="text-xs text-blue-600 font-bold hover:underline">查看全部日期</button>
                         </div>
-                        <div class="overflow-x-auto no-scrollbar flex-grow">
-                            <table class="w-full text-left min-w-[600px]">
-                                <thead class="bg-slate-50/80 sticky top-0 z-10">
-                                    <tr class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                                        <th class="px-8 py-4">日期</th>
-                                        <th class="px-6 py-4">產品</th>
-                                        <th class="px-6 py-4">成交金額</th>
-                                        <th class="px-8 py-4 text-center">狀態 / 操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recordList" class="divide-y divide-slate-50 text-sm"></tbody>
-                            </table>
-                        </div>
+                        <div id="recentList" class="divide-y divide-slate-50"></div>
                     </div>
                 </main>
             </div>
         </div>
 
-        <!-- [數據報表分頁] -->
+        <!-- Page: Daily Details -->
+        <div id="page-daily" class="tab-content hidden">
+            <div id="dailyAccordionContainer" class="space-y-4"></div>
+        </div>
+
+        <!-- Page: Reports -->
         <div id="page-reports" class="tab-content hidden">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- 左側：產品統計 -->
                 <div class="lg:col-span-4 space-y-6">
                     <div class="glass-card p-6 rounded-3xl">
-                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-4">銷量排行</h3>
-                        <div id="topProductsList" class="space-y-4"></div>
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-6 flex items-center justify-between">
+                            產品銷量排行 <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                        </h3>
+                        <div id="topProductsList" class="space-y-5">
+                            <!-- JS 動態生成 -->
+                        </div>
                     </div>
-                    <div class="glass-card p-6 rounded-3xl bg-blue-600 text-white">
-                        <h3 class="text-xs font-bold opacity-80 mb-1">平均客單價</h3>
-                        <p class="text-3xl font-black mb-4" id="avgOrderValue">$0</p>
-                        <h3 class="text-xs font-bold opacity-80 mb-1">整體毛利率</h3>
-                        <p class="text-3xl font-black" id="marginRate">0%</p>
+                    
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="glass-card p-6 rounded-3xl bg-indigo-600 text-white">
+                            <h3 class="text-xs font-bold opacity-70 mb-1">平均客單價 (AOV)</h3>
+                            <p class="text-3xl font-black" id="avgOrderValue">$0</p>
+                        </div>
+                        <div class="glass-card p-6 rounded-3xl bg-blue-600 text-white">
+                            <h3 class="text-xs font-bold opacity-70 mb-1">整體毛利率</h3>
+                            <p class="text-3xl font-black" id="marginRate">0%</p>
+                        </div>
                     </div>
                 </div>
-                <div class="lg:col-span-8 space-y-6">
-                    <div class="glass-card p-6 rounded-3xl h-[350px]">
-                        <canvas id="trendChart"></canvas>
+
+                <!-- 右側：趨勢圖 -->
+                <div class="lg:col-span-8">
+                    <div class="glass-card p-8 rounded-3xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-8 flex items-center justify-between">
+                            銷售趨勢分析 (近 30 日) <i data-lucide="trending-up" class="w-4 h-4 text-emerald-500"></i>
+                        </h3>
+                        <div class="h-[400px] w-full">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 grid grid-cols-2 gap-6">
+                        <div class="glass-card p-6 rounded-3xl">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">總銷售件數</p>
+                            <p class="text-2xl font-black text-slate-800" id="totalSoldUnits">0</p>
+                        </div>
+                        <div class="glass-card p-6 rounded-3xl">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">庫存剩餘總價值</p>
+                            <p class="text-2xl font-black text-slate-800" id="stockValue">$0</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 參數編輯彈窗 -->
+    <!-- Edit Modal -->
     <div id="editModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-6">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
-            <h3 class="text-xl font-bold mb-1" id="targetProductName">產品參數調整</h3>
-            <div class="space-y-5 my-8">
+            <h3 class="text-xl font-bold mb-1" id="targetProductName">參數調整</h3>
+            <div class="space-y-4 my-6">
                 <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">目前庫存</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">庫存調整</label>
                     <input type="number" id="editStockCount" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black text-center">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">預設成本</label>
-                        <input type="number" step="0.01" id="editUnitCost" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-center text-emerald-600">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">預設成本</label>
+                        <input type="number" step="0.01" id="editUnitCost" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-lg font-bold text-center text-emerald-600">
                     </div>
                     <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">預設售價</label>
-                        <input type="number" step="0.01" id="editUnitPrice" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-center text-blue-600">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">預設售價</label>
+                        <input type="number" step="0.01" id="editUnitPrice" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-lg font-bold text-center text-blue-600">
                     </div>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="closeEditModal()" class="py-4 font-bold text-slate-400">取消</button>
-                <button onclick="confirmEditChange()" class="py-4 font-bold bg-blue-600 text-white rounded-2xl">儲存</button>
+            <div class="grid grid-cols-2 gap-4 pt-4 border-t">
+                <button onclick="closeEditModal()" class="py-3 font-bold text-slate-400">取消</button>
+                <button onclick="confirmEditChange()" class="py-3 font-bold bg-blue-600 text-white rounded-xl">更新設定</button>
             </div>
         </div>
     </div>
@@ -208,7 +229,6 @@
     <script>
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqAwQj-2MHcMFImO6IbSC7NGL_TEmsSfGoEHj-SvPNsUX-SnirFihFFywRSnOoxBD8ng/exec';
         
-        // 核心資料
         let productSettings = JSON.parse(localStorage.getItem('product_settings')) || {
             "P1-磁懸浮": { price: 360, cost: 240.2 },
             "P2-帆布袋": { price: 30, cost: 14.2 },
@@ -217,10 +237,9 @@
         };
         let stocks = JSON.parse(localStorage.getItem('stocks')) || { "P1-磁懸浮": 10, "P2-帆布袋": 50, "P3-毛巾": 100, "P4-鎖匙扣": 100 };
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        
-        // 離線同步佇列
         let syncQueue = JSON.parse(localStorage.getItem('sync_queue')) || [];
         let isSyncing = false;
+        let trendChart = null;
 
         function init() {
             lucide.createIcons();
@@ -234,89 +253,20 @@
             initPackageList();
             render();
             
-            // 啟動網絡監控與定時檢查同步
+            setInterval(processSyncQueue, 1500); 
             window.addEventListener('online', processSyncQueue);
-            setInterval(processSyncQueue, 10000); // 每 10 秒檢查一次
-            processSyncQueue();
         }
 
-        // --- 同步邏輯 ---
-        async function processSyncQueue() {
-            if (isSyncing || syncQueue.length === 0 || !navigator.onLine) {
-                updateSyncUI();
-                return;
-            }
-
-            isSyncing = true;
-            const statusEl = document.getElementById('syncStatus');
-            statusEl.className = "text-[10px] font-normal px-2 py-1 rounded-full text-nowrap flex items-center gap-1 sync-pending";
-            statusEl.innerHTML = `<i data-lucide="refresh-cw" class="w-3 h-3 animate-spin"></i> 正在同步 (${syncQueue.length})...`;
-            lucide.createIcons();
-
-            // 複製一份隊列處理，避免並發修改問題
-            const item = syncQueue[0]; 
-
-            try {
-                // 發送請求到 Google Sheets
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // Apps Script 通常需要 no-cors
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(item)
-                });
-
-                // 因為是 no-cors，fetch 只要有回應 (不論成功失敗) 都會完成
-                // 我們假設回應即代表網絡通暢且已到達伺服器
-                syncQueue.shift(); // 移除已處理項
-                localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
-                
-                // 標記本地交易為「已同步」
-                const txIndex = transactions.findIndex(t => t.id === item.id);
-                if (txIndex !== -1) transactions[txIndex].synced = true;
-                localStorage.setItem('transactions', JSON.stringify(transactions));
-
-                render(); // 更新列表顯示狀態
-            } catch (err) {
-                console.log("同步延遲:", err);
-            } finally {
-                isSyncing = false;
-                updateSyncUI();
-                // 如果還有剩餘，遞迴處理下一個
-                if (syncQueue.length > 0 && navigator.onLine) {
-                    setTimeout(processSyncQueue, 500); 
-                }
-            }
-        }
-
-        function updateSyncUI() {
-            const statusEl = document.getElementById('syncStatus');
-            const indicator = document.getElementById('syncIndicator');
-            
-            if (!navigator.onLine) {
-                statusEl.className = "text-[10px] font-normal px-2 py-1 rounded-full text-nowrap flex items-center gap-1 sync-offline";
-                statusEl.innerHTML = `<i data-lucide="wifi-off" class="w-3 h-3"></i> 離線模式`;
-            } else if (syncQueue.length > 0) {
-                statusEl.className = "text-[10px] font-normal px-2 py-1 rounded-full text-nowrap flex items-center gap-1 sync-pending";
-                statusEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3"></i> 等待同步 (${syncQueue.length})`;
-            } else {
-                statusEl.className = "text-[10px] font-normal px-2 py-1 rounded-full text-nowrap flex items-center gap-1 sync-online";
-                statusEl.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3"></i> 連線中`;
-            }
-            
-            indicator.classList.toggle('hidden', syncQueue.length === 0);
-            lucide.createIcons();
-        }
-
-        // --- 基礎界面與操作 ---
+        // --- Core Functions ---
         function initProductSelect() {
             const select = document.getElementById('productSelect');
-            select.innerHTML = '<option value="" disabled selected>選擇產品...</option>';
+            select.innerHTML = '<option value="" disabled selected>請選擇項目...</option>';
             Object.keys(productSettings).forEach(key => {
                 const opt = document.createElement('option');
                 opt.value = key; opt.textContent = `${key} (剩: ${stocks[key]})`;
                 select.appendChild(opt);
             });
-            select.innerHTML += `<option value="package" class="text-blue-600 font-bold">📦 豪華組合包</option>`;
+            select.innerHTML += `<option value="package" class="text-blue-600 font-bold">📦 優惠組合包 (自定義項目)</option>`;
         }
 
         function initPackageList() {
@@ -324,10 +274,10 @@
             container.innerHTML = Object.keys(productSettings).map(key => `
                 <div class="flex items-center justify-between text-xs py-1">
                     <span class="text-slate-600">${key}</span>
-                    <div class="flex items-center bg-white rounded-lg border border-blue-200">
-                        <button type="button" onclick="stepPkg('${key}', -1)" class="px-2 py-1 text-blue-500">-</button>
-                        <input type="number" data-pkg-key="${key}" value="0" readonly class="pkg-input w-8 text-center font-bold text-blue-700 bg-transparent outline-none">
-                        <button type="button" onclick="stepPkg('${key}', 1)" class="px-2 py-1 text-blue-500">+</button>
+                    <div class="flex items-center bg-white rounded-lg border border-blue-100 overflow-hidden">
+                        <button type="button" onclick="stepPkg('${key}', -1)" class="px-2 py-1 hover:bg-slate-50 text-blue-500">-</button>
+                        <input type="number" data-pkg-key="${key}" value="0" readonly class="pkg-input w-8 text-center font-bold text-blue-700 bg-transparent">
+                        <button type="button" onclick="stepPkg('${key}', 1)" class="px-2 py-1 hover:bg-slate-50 text-blue-500">+</button>
                     </div>
                 </div>
             `).join('');
@@ -347,8 +297,8 @@
                 totalP += productSettings[key].price * qty;
                 totalC += productSettings[key].cost * qty;
             });
-            document.getElementById('unitPrice').value = totalP.toFixed(2);
-            document.getElementById('totalTransactionCost').value = totalC.toFixed(2);
+            document.getElementById('unitPrice').value = totalP;
+            document.getElementById('totalTransactionCost').value = totalC;
         }
 
         window.autoFillPrices = () => {
@@ -365,10 +315,11 @@
             }
         };
 
-        // 提交交易
         document.getElementById('transactionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const type = document.getElementById('productSelect').value;
+            if(!type) return;
+
             let finalName = "", rawMapping = {};
             const qtyVal = parseInt(document.getElementById('quantity').value);
 
@@ -377,7 +328,7 @@
                 document.querySelectorAll('.pkg-input').forEach(input => {
                     const q = parseInt(input.value) || 0;
                     if (q > 0) { 
-                        items.push(`${input.dataset.pkgKey.split('-')[0]}x${q}`); 
+                        items.push(`${input.dataset.pkgKey.split('-')[1]}x${q}`); 
                         rawMapping[input.dataset.pkgKey] = q; 
                     }
                 });
@@ -391,7 +342,7 @@
             const totalRev = unitP * (type === 'package' ? 1 : qtyVal);
             const totalCost = parseFloat(document.getElementById('totalTransactionCost').value);
 
-            const recordId = "T-" + Date.now();
+            const recordId = "TX-" + Date.now();
             const record = {
                 id: recordId,
                 date: document.getElementById('date').value,
@@ -402,65 +353,28 @@
                 status: 'active'
             };
 
-            // 扣除庫存並保存本地
             Object.keys(rawMapping).forEach(key => stocks[key] -= rawMapping[key]);
             const localRecord = { ...record, totalCost, profit: totalRev - totalCost, rawMapping, synced: false };
             transactions.unshift(localRecord);
-            
-            // 加入同步隊列
             syncQueue.push(record);
-            localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
             
             saveAndRender();
-            processSyncQueue(); // 嘗試同步
-
             this.reset();
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
-            initProductSelect(); initPackageList();
+            initProductSelect(); 
+            initPackageList();
         });
 
-        // 刪除交易
-        window.deleteRecord = (id) => {
-            const record = transactions.find(t => t.id === id);
-            if(!record || !confirm('確定刪除此交易？')) return;
-            if (record.rawMapping) {
-                Object.keys(record.rawMapping).forEach(k => stocks[k] += record.rawMapping[k]);
-            }
-            
-            // 刪除指令也加入隊列
-            syncQueue.push({ id: record.id, date: record.date, status: 'del' });
-            localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
-            
-            transactions = transactions.filter(t => t.id !== id);
-            saveAndRender();
-            processSyncQueue();
-            initProductSelect();
-        };
-
+        // --- Render Functions ---
         function render() {
             renderStocks();
-            const list = document.getElementById('recordList');
-            list.innerHTML = '';
-            
-            let tRev = 0, tProfit = 0;
-            transactions.forEach(item => {
-                tRev += item.total; tProfit += item.profit;
-                list.innerHTML += `
-                    <tr>
-                        <td class="px-8 py-5 text-slate-400 font-bold text-[10px]">${item.date}</td>
-                        <td class="px-6 py-5 font-bold">${item.product} <span class="text-[10px] text-slate-400">x${item.quantity}</span></td>
-                        <td class="px-6 py-5 text-blue-600 font-bold">$${item.total.toLocaleString()}</td>
-                        <td class="px-8 py-5 text-center flex items-center justify-center gap-4">
-                            <span class="${item.synced ? 'text-green-500' : 'text-amber-500 animate-pulse'}" title="${item.synced ? '已同步雲端' : '等候同步中'}">
-                                <i data-lucide="${item.synced ? 'cloud-check' : 'cloud-off'}" class="w-4 h-4"></i>
-                            </span>
-                            <button onclick="deleteRecord('${item.id}')" class="text-slate-300 hover:text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                        </td>
-                    </tr>
-                `;
-            });
+            renderRecent();
+            renderDailyAccordion();
+            renderReports();
 
-            document.getElementById('recordCount').textContent = `${transactions.length} 筆`;
+            let tRev = 0, tProfit = 0;
+            transactions.forEach(item => { tRev += item.total; tProfit += item.profit; });
+
             document.getElementById('totalRevenue').textContent = `$${tRev.toLocaleString()}`;
             document.getElementById('totalProfit').textContent = `$${tProfit.toLocaleString()}`;
             
@@ -468,25 +382,233 @@
             const net = tRev - budget;
             const netEl = document.getElementById('netProfitDisplay');
             netEl.textContent = `$${net.toLocaleString()}`;
-            netEl.className = `text-2xl font-black ${net < 0 ? 'text-red-500' : 'text-emerald-600'}`;
+            netEl.className = `text-xl font-black ${net < 0 ? 'text-red-500' : 'text-emerald-600'}`;
             
             lucide.createIcons();
             updateSyncUI();
         }
 
+        function renderRecent() {
+            const container = document.getElementById('recentList');
+            container.innerHTML = transactions.slice(0, 5).map(t => `
+                <div class="p-4 flex justify-between items-center group hover:bg-slate-50 transition-all">
+                    <div>
+                        <p class="font-bold text-slate-800">${t.product} <span class="text-slate-400 font-normal">x${t.quantity}</span></p>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">${t.date}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-black text-blue-600">$${t.total.toLocaleString()}</p>
+                        <p class="text-[10px] text-emerald-500 font-bold">+$${t.profit.toFixed(1)}</p>
+                    </div>
+                </div>
+            `).join('');
+            if(transactions.length === 0) container.innerHTML = '<div class="p-10 text-center text-slate-300 italic">目前尚無交易紀錄</div>';
+        }
+
+        function renderDailyAccordion() {
+            const container = document.getElementById('dailyAccordionContainer');
+            const groups = transactions.reduce((acc, t) => {
+                if(!acc[t.date]) acc[t.date] = { list: [], revenue: 0, profit: 0 };
+                acc[t.date].list.push(t);
+                acc[t.date].revenue += t.total;
+                acc[t.date].profit += t.profit;
+                return acc;
+            }, {});
+
+            const sortedDates = Object.keys(groups).sort().reverse();
+
+            if (sortedDates.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 text-slate-300 font-bold">尚無紀錄</div>`;
+                return;
+            }
+
+            container.innerHTML = sortedDates.map(date => {
+                const g = groups[date];
+                return `
+                    <div class="accordion-item glass-card rounded-2xl overflow-hidden" id="group-${date}">
+                        <button onclick="toggleAccordion('group-${date}')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-all">
+                            <div class="flex items-center gap-4">
+                                <h4 class="font-bold text-slate-800">${date}</h4>
+                                <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-400 font-bold">${g.list.length} TX</span>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div class="text-right hidden md:block">
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase">銷售</p>
+                                    <p class="font-black text-slate-700">$${g.revenue.toLocaleString()}</p>
+                                </div>
+                                <div class="text-right hidden md:block">
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase">毛利</p>
+                                    <p class="font-black text-emerald-500">$${g.profit.toLocaleString()}</p>
+                                </div>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-300 chevron-icon transition-transform"></i>
+                            </div>
+                        </button>
+                        <div class="accordion-content bg-slate-50/50">
+                            <div class="p-4 border-t border-slate-100 space-y-2">
+                                ${g.list.map(t => `
+                                    <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
+                                        <div>
+                                            <p class="text-xs font-bold text-slate-700">${t.product}</p>
+                                            <p class="text-[10px] text-slate-400 font-bold">單價: $${t.price} x ${t.quantity}</p>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <div class="text-right">
+                                                <p class="text-xs font-black text-blue-600">$${t.total}</p>
+                                                <p class="text-[9px] text-emerald-500 font-bold">+$${t.profit.toFixed(1)}</p>
+                                            </div>
+                                            <button onclick="deleteRecord('${t.id}')" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function renderReports() {
+            // 1. 計算銷量排行 (拆解套裝)
+            const productCounts = {};
+            let totalUnits = 0;
+            transactions.forEach(t => {
+                if (t.rawMapping) {
+                    Object.keys(t.rawMapping).forEach(key => {
+                        const q = t.rawMapping[key];
+                        productCounts[key] = (productCounts[key] || 0) + q;
+                        totalUnits += q;
+                    });
+                }
+            });
+
+            const sortedProducts = Object.entries(productCounts).sort((a,b) => b[1] - a[1]);
+            document.getElementById('topProductsList').innerHTML = sortedProducts.map(([name, count]) => {
+                const percent = totalUnits > 0 ? (count / totalUnits * 100).toFixed(0) : 0;
+                return `
+                    <div>
+                        <div class="flex justify-between items-end mb-1">
+                            <span class="text-xs font-bold text-slate-600">${name}</span>
+                            <span class="text-xs font-black text-slate-800">${count} 件</span>
+                        </div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-500 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p class="text-center text-slate-300 py-4">無銷售數據</p>';
+            
+            document.getElementById('totalSoldUnits').textContent = totalUnits;
+
+            // 2. 庫存剩餘總價值
+            let sValue = 0;
+            Object.keys(stocks).forEach(key => {
+                sValue += stocks[key] * productSettings[key].cost;
+            });
+            document.getElementById('stockValue').textContent = `$${sValue.toLocaleString()}`;
+
+            // 3. KPI 計算
+            const totalRev = transactions.reduce((a, b) => a + b.total, 0);
+            const totalProf = transactions.reduce((a, b) => a + b.profit, 0);
+            const aov = transactions.length > 0 ? (totalRev / transactions.length).toFixed(1) : 0;
+            const margin = totalRev > 0 ? ((totalProf / totalRev) * 100).toFixed(1) : 0;
+
+            document.getElementById('avgOrderValue').textContent = `$${aov}`;
+            document.getElementById('marginRate').textContent = `${margin}%`;
+
+            // 4. 趨勢圖表更新
+            updateTrendChart();
+        }
+
+        function updateTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            const dayGroups = transactions.reduce((acc, t) => {
+                acc[t.date] = (acc[t.date] || 0) + t.total;
+                return acc;
+            }, {});
+
+            // 取得最近 30 天日期
+            const labels = [];
+            const data = [];
+            for (let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const ds = d.toISOString().split('T')[0];
+                labels.push(ds.substring(5)); // 只取 MM-DD
+                data.push(dayGroups[ds] || 0);
+            }
+
+            if (trendChart) trendChart.destroy();
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: '每日銷售額 (HKD)',
+                        data: data,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // --- Helper Logic ---
+        window.switchTab = (id) => {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`page-${id}`).classList.remove('hidden');
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active', 'text-blue-600'));
+            document.getElementById(`tab-${id}`).classList.add('tab-active');
+            if(id === 'reports') setTimeout(renderReports, 100);
+            lucide.createIcons();
+        };
+
+        window.toggleAccordion = (id) => {
+            const el = document.getElementById(id);
+            const wasActive = el.classList.contains('active');
+            document.querySelectorAll('.accordion-item').forEach(item => item.classList.remove('active'));
+            if(!wasActive) el.classList.add('active');
+        };
+
+        window.deleteRecord = (id) => {
+            if(!confirm('確定刪除此筆交易紀錄？庫存將會自動歸還。')) return;
+            const record = transactions.find(t => t.id === id);
+            if(!record) return;
+            
+            if (record.rawMapping) {
+                Object.keys(record.rawMapping).forEach(k => stocks[k] += record.rawMapping[k]);
+            }
+            syncQueue.push({ id: record.id, date: record.date, status: 'del' });
+            transactions = transactions.filter(t => t.id !== id);
+            saveAndRender();
+            initProductSelect();
+        };
+
         function renderStocks() {
             const grid = document.getElementById('stockGrid');
             grid.innerHTML = Object.keys(stocks).map(key => `
-                <button onclick="openEditModal('${key}')" class="bg-white border p-2 rounded-xl text-center hover:border-blue-400 transition">
+                <button onclick="openEditModal('${key}')" class="bg-white border border-slate-100 p-2 rounded-xl text-center hover:border-blue-300 transition-all shadow-sm">
                     <span class="block text-[8px] text-slate-400 font-bold truncate">${key}</span>
                     <span class="block text-sm font-black text-slate-800">${stocks[key]}</span>
-                    <span class="block text-[7px] text-emerald-500 font-bold mt-1">成本: $${productSettings[key].cost}</span>
                 </button>
             `).join('');
         }
 
-        // 彈窗邏輯
-        let currentKey = null;
         window.openEditModal = (key) => {
             currentKey = key;
             document.getElementById('targetProductName').textContent = key;
@@ -503,18 +625,41 @@
             saveAndRender(); closeEditModal(); initProductSelect();
         };
 
-        window.switchTab = (id) => {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(`page-${id}`).classList.remove('hidden');
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
-            document.getElementById(`tab-${id}`).classList.add('tab-active');
+        async function processSyncQueue() {
+            if (isSyncing || syncQueue.length === 0 || !navigator.onLine) {
+                updateSyncUI(); return;
+            }
+            isSyncing = true;
+            const item = syncQueue[0]; 
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(item) });
+                syncQueue.shift();
+                localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
+            } catch (err) { console.log("Sync Error", err); }
+            isSyncing = false;
+            updateSyncUI();
+        }
+
+        function updateSyncUI() {
+            const statusEl = document.getElementById('syncStatus');
+            if (!navigator.onLine) {
+                statusEl.className = "text-[10px] font-bold px-2 py-1 rounded-full sync-offline";
+                statusEl.innerHTML = `<i data-lucide="wifi-off" class="w-3 h-3"></i> 離線`;
+            } else if (syncQueue.length > 0) {
+                statusEl.className = "text-[10px] font-bold px-2 py-1 rounded-full sync-pending";
+                statusEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3"></i> 同步中 (${syncQueue.length})`;
+            } else {
+                statusEl.className = "text-[10px] font-bold px-2 py-1 rounded-full sync-online";
+                statusEl.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3"></i> 已同步`;
+            }
             lucide.createIcons();
-        };
+        }
 
         function saveAndRender() {
             localStorage.setItem('transactions', JSON.stringify(transactions));
             localStorage.setItem('stocks', JSON.stringify(stocks));
             localStorage.setItem('product_settings', JSON.stringify(productSettings));
+            localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
             render();
         }
 
