@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易管理系統 - 庫存財務版</title>
+    <title>交易管理系統 - 響應式專業版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -22,134 +22,138 @@
         .loss-text { color: #ef4444; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .sold-out { color: #94a3b8; text-decoration: line-through; }
+        
+        /* 隱藏滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="min-h-screen text-slate-800 antialiased p-4 md:p-6">
+<body class="min-h-screen text-slate-800 antialiased p-3 md:p-6">
     <div class="max-w-7xl mx-auto">
         <!-- 頂部標題與基礎設定 -->
-        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+        <header class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-6 gap-4">
+            <div class="px-2">
+                <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
                     營運管理系統
                     <span id="networkStatus"></span>
                 </h1>
-                <p class="text-slate-500 text-sm mt-1">財務成本、利潤分析及庫存連動</p>
+                <p class="text-slate-500 text-xs md:text-sm mt-1">財務成本、利潤分析及庫存連動</p>
             </div>
             
-            <div class="glass-card px-6 py-4 rounded-2xl border-l-4 border-slate-500 flex flex-col sm:flex-row items-center gap-4">
-                <div class="text-center sm:text-left">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">已用總成本 (HKD)</p>
-                    <div class="flex items-center gap-2">
+            <div class="glass-card px-4 py-3 md:px-6 md:py-4 rounded-2xl border-l-4 border-slate-500 flex flex-row items-center justify-between sm:justify-start gap-4 md:gap-8">
+                <div class="text-left">
+                    <p class="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">已用總成本 (HKD)</p>
+                    <div class="flex items-center gap-1 md:gap-2">
                         <span class="text-slate-600 font-bold">$</span>
-                        <input type="number" id="initialBudget" step="0.01" class="bg-transparent text-xl font-black text-slate-700 outline-none w-32 focus:bg-white/50 rounded" value="3962.74">
+                        <input type="number" id="initialBudget" step="0.01" class="bg-transparent text-lg md:text-xl font-black text-slate-700 outline-none w-24 md:w-32 focus:bg-white/50 rounded" value="3962.74">
                     </div>
                 </div>
-                <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
+                <div class="h-8 w-px bg-slate-200"></div>
                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">目前淨利 (總收入 - 已用成本)</p>
-                    <p class="text-xl font-black text-blue-600" id="netProfitDisplay">$0</p>
+                    <p class="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">目前淨利</p>
+                    <p class="text-lg md:text-xl font-black text-blue-600" id="netProfitDisplay">$0</p>
                 </div>
             </div>
         </header>
 
-        <!-- 數據核心看板 -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-            <div class="glass-card p-4 rounded-2xl flex items-center gap-3">
-                <div class="bg-blue-100 p-2 rounded-lg text-blue-600"><i data-lucide="trending-up" size="18"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">累積總收入</p>
-                    <p class="text-lg font-black text-slate-700" id="totalRevenue">$0</p>
+        <!-- 數據看板：手機 2 列, 平板 3 列, 桌面 5 列 -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+            <div class="glass-card p-3 md:p-4 rounded-2xl flex items-center gap-3">
+                <div class="bg-blue-100 p-2 rounded-lg text-blue-600 shrink-0"><i data-lucide="trending-up" size="18"></i></div>
+                <div class="min-w-0">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase truncate">累積總收入</p>
+                    <p class="text-sm md:text-lg font-black text-slate-700 truncate" id="totalRevenue">$0</p>
                 </div>
             </div>
-            <div class="glass-card p-4 rounded-2xl flex items-center gap-3">
-                <div class="bg-amber-100 p-2 rounded-lg text-amber-600"><i data-lucide="shopping-cart" size="18"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">已售商品成本</p>
-                    <p class="text-lg font-black text-slate-700" id="totalCost">$0</p>
+            <div class="glass-card p-3 md:p-4 rounded-2xl flex items-center gap-3">
+                <div class="bg-amber-100 p-2 rounded-lg text-amber-600 shrink-0"><i data-lucide="shopping-cart" size="18"></i></div>
+                <div class="min-w-0">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase truncate">已售成本</p>
+                    <p class="text-sm md:text-lg font-black text-slate-700 truncate" id="totalCost">$0</p>
                 </div>
             </div>
-            <div class="glass-card p-4 rounded-2xl flex items-center gap-3 border-b-4 border-emerald-500">
-                <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="dollar-sign" size="18"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">累積淨利潤</p>
-                    <p class="text-lg font-black text-emerald-600" id="totalProfit">$0</p>
+            <div class="glass-card p-3 md:p-4 rounded-2xl flex items-center gap-3 border-b-4 border-emerald-500">
+                <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600 shrink-0"><i data-lucide="dollar-sign" size="18"></i></div>
+                <div class="min-w-0">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase truncate">累積淨利</p>
+                    <p class="text-sm md:text-lg font-black text-emerald-600 truncate" id="totalProfit">$0</p>
                 </div>
             </div>
-            <div class="glass-card p-4 rounded-2xl lg:col-span-2 overflow-hidden">
+            <!-- 庫存看板在手機端佔據 2 列 -->
+            <div class="glass-card p-3 md:p-4 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-2 overflow-hidden">
                 <div class="flex justify-between items-center mb-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">產品剩餘存貨與成本 (點擊修改)</p>
-                    <i data-lucide="box" size="14" class="text-slate-300"></i>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase">產品存貨與成本</p>
+                    <i data-lucide="box" size="12" class="text-slate-300"></i>
                 </div>
                 <div id="stockGrid" class="grid grid-cols-4 gap-2"></div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <!-- 左側：新增交易 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- 左側：新增交易表單 -->
             <aside class="lg:col-span-4 space-y-6">
-                <div class="glass-card p-8 rounded-3xl">
-                    <h2 class="text-lg font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-500 pl-4">新增交易記錄</h2>
+                <div class="glass-card p-5 md:p-8 rounded-3xl">
+                    <h2 class="text-base md:text-lg font-bold mb-5 flex items-center gap-2 border-l-4 border-blue-500 pl-4">新增交易記錄</h2>
                     <form id="transactionForm" class="space-y-4">
                         <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">產品名稱</label>
-                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">產品名稱</label>
+                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none">
                                 <option value="" disabled selected>請選擇產品...</option>
-                                <!-- 動態更新選項 -->
                             </select>
                         </div>
 
-                        <!-- Package 專屬輸入區 -->
-                        <div id="packageField" class="hidden space-y-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 animate-in slide-in-from-top-2">
+                        <!-- Package 組合區域 -->
+                        <div id="packageField" class="hidden space-y-3 p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
                             <p class="text-[10px] font-bold text-blue-400 uppercase">Package 內容組合</p>
-                            <div id="packageList" class="space-y-2">
-                                <!-- 由 JS 動態生成產品數量輸入框 -->
-                            </div>
+                            <div id="packageList" class="space-y-2"></div>
                         </div>
 
-                        <div id="otherField" class="hidden space-y-1 animate-in fade-in">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">自定義名稱</label>
-                            <input type="text" id="customName" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="輸入產品名稱">
+                        <div id="otherField" class="hidden space-y-1">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">自定義名稱</label>
+                            <input type="text" id="customName" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" placeholder="輸入產品名稱">
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">成交總額</label>
-                                <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none" placeholder="0">
+                                <label class="text-[10px] font-bold text-slate-500 uppercase">成交總額</label>
+                                <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none text-sm" placeholder="0">
                             </div>
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">總計成本</label>
-                                <input type="number" step="0.01" id="unitCost" required class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl outline-none" placeholder="0">
+                                <label class="text-[10px] font-bold text-slate-500 uppercase">總計成本</label>
+                                <input type="number" step="0.01" id="unitCost" required class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl outline-none text-sm" placeholder="0">
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1" id="qtyContainer">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">數量</label>
-                                <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"></select>
+                                <label class="text-[10px] font-bold text-slate-500 uppercase">數量</label>
+                                <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm appearance-none"></select>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">交易日期</label>
-                                <input type="date" id="date" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+                                <label class="text-[10px] font-bold text-slate-500 uppercase">交易日期</label>
+                                <input type="date" id="date" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm">
                             </div>
                         </div>
 
-                        <button type="submit" id="submitBtn" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition duration-300 active:scale-95 flex justify-center items-center gap-2 mt-4">
-                            <i data-lucide="plus-circle" size="18"></i> 確認提交交易
+                        <button type="submit" id="submitBtn" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-3 md:py-4 rounded-2xl shadow-lg transition duration-300 active:scale-95 flex justify-center items-center gap-2 mt-2">
+                            <i data-lucide="plus-circle" size="18"></i> 提交交易
                         </button>
                     </form>
                 </div>
             </aside>
 
-            <!-- 右側：清單 -->
+            <!-- 右側：歷史清單 -->
             <main class="lg:col-span-8">
-                <div class="glass-card rounded-3xl overflow-hidden min-h-[550px] flex flex-col">
-                    <div class="p-8 border-b border-slate-100 bg-white/50">
-                        <h2 class="text-lg font-bold">歷史交易清單</h2>
+                <div class="glass-card rounded-3xl overflow-hidden flex flex-col h-full">
+                    <div class="p-5 md:p-8 border-b border-slate-100 bg-white/50">
+                        <h2 class="text-base md:text-lg font-bold">歷史交易清單</h2>
                     </div>
-                    <div class="overflow-x-auto flex-grow">
-                        <table class="w-full text-left">
+                    
+                    <!-- 手機端支援橫向滑動 -->
+                    <div class="overflow-x-auto no-scrollbar flex-grow">
+                        <table class="w-full text-left min-w-[600px]">
                             <thead class="bg-slate-50/50">
-                                <tr class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                <tr class="text-slate-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest">
                                     <th class="px-6 py-4">日期</th>
                                     <th class="px-6 py-4">產品內容</th>
                                     <th class="px-6 py-4">收支明細</th>
@@ -159,9 +163,10 @@
                             </thead>
                             <tbody id="recordList" class="divide-y divide-slate-100"></tbody>
                         </table>
-                        <div id="emptyState" class="hidden py-32 text-center text-slate-300">
+                        
+                        <div id="emptyState" class="hidden py-24 text-center text-slate-300">
                             <i data-lucide="layout-list" size="48" class="mx-auto mb-4 opacity-10"></i>
-                            <p class="font-medium">尚無交易記錄</p>
+                            <p class="text-sm">尚無交易記錄</p>
                         </div>
                     </div>
                 </div>
@@ -169,26 +174,26 @@
         </div>
     </div>
 
-    <!-- 編輯產品內容 Modal (庫存 & 成本) -->
-    <div id="editModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
-            <h3 class="text-xl font-bold mb-4" id="modalTitle">修改產品設定</h3>
-            <p class="text-sm text-slate-500 mb-6">修改 <span id="targetProductName" class="font-bold text-blue-600"></span> 的數據。</p>
+    <!-- 編輯 Modal (針對觸控加大間距) -->
+    <div id="editModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-6">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl">
+            <h3 class="text-lg md:text-xl font-bold mb-2">產品數據設定</h3>
+            <p class="text-xs text-slate-500 mb-6">產品: <span id="targetProductName" class="font-bold text-blue-600"></span></p>
             
             <div class="space-y-4 mb-6">
                 <div class="space-y-1">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">剩餘存貨量</label>
+                    <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">目前庫存</label>
                     <input type="number" id="editStockCount" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black outline-none text-center">
                 </div>
                 <div class="space-y-1">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">單位成本 (HKD)</label>
+                    <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">單位成本 (HKD)</label>
                     <input type="number" step="0.01" id="editUnitCost" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black outline-none text-center text-emerald-600">
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-                <button onclick="closeEditModal()" class="py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-50">取消</button>
-                <button onclick="confirmEditChange()" class="py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200">儲存變更</button>
+                <button onclick="closeEditModal()" class="py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-50 text-sm">取消</button>
+                <button onclick="confirmEditChange()" class="py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 text-sm">更新設定</button>
             </div>
         </div>
     </div>
@@ -234,7 +239,6 @@
             window.addEventListener('offline', updateStatus);
         }
 
-        // 初始化/刷新產品選擇下拉選單
         function initProductSelect() {
             const select = document.getElementById('productSelect');
             const currentVal = select.value;
@@ -253,7 +257,6 @@
                 select.appendChild(opt);
             });
 
-            // Package 和 其他
             const pkgOpt = document.createElement('option');
             pkgOpt.value = 'package';
             pkgOpt.className = "font-bold text-blue-600";
@@ -262,7 +265,7 @@
 
             const otherOpt = document.createElement('option');
             otherOpt.value = 'other';
-            otherOpt.textContent = "＋ 其他產品 (手動輸入)";
+            otherOpt.textContent = "＋ 其他產品 (手動)";
             select.appendChild(otherOpt);
 
             if (currentVal) select.value = currentVal;
@@ -276,16 +279,16 @@
                 const div = document.createElement('div');
                 div.className = `flex items-center justify-between gap-3 py-1 border-b border-slate-50 last:border-0 ${isOutOfStock ? 'opacity-40' : ''}`;
                 div.innerHTML = `
-                    <div class="flex flex-col flex-grow truncate mr-2">
+                    <div class="flex flex-col flex-grow truncate mr-2 min-w-0">
                         <span class="text-[11px] text-slate-700 font-medium truncate">${key}</span>
                         <span class="text-[9px] text-slate-400 font-bold">剩餘: ${stocks[key]}</span>
                     </div>
                     <div class="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
-                        <button type="button" onclick="stepPkg('${key}', -1)" class="px-2 py-1 hover:bg-slate-50 text-slate-400" ${isOutOfStock ? 'disabled' : ''}>-</button>
+                        <button type="button" onclick="stepPkg('${key}', -1)" class="px-3 py-1 hover:bg-slate-50 text-slate-400">-</button>
                         <input type="number" data-pkg-key="${key}" value="0" min="0" max="${stocks[key]}"
                             class="pkg-input w-10 text-center text-xs font-bold outline-none border-x border-slate-100 py-1"
                             onchange="validatePkgInput(this); calculatePackageTotal()" ${isOutOfStock ? 'disabled' : ''}>
-                        <button type="button" onclick="stepPkg('${key}', 1)" class="px-2 py-1 hover:bg-slate-50 text-slate-400" ${isOutOfStock ? 'disabled' : ''}>+</button>
+                        <button type="button" onclick="stepPkg('${key}', 1)" class="px-3 py-1 hover:bg-slate-50 text-slate-400">+</button>
                     </div>
                 `;
                 container.appendChild(div);
@@ -314,7 +317,6 @@
 
         function calculatePackageTotal() {
             if (document.getElementById('productSelect').value !== 'package') return;
-            
             let totalP = 0;
             let totalC = 0;
             const inputs = document.querySelectorAll('.pkg-input');
@@ -324,7 +326,6 @@
                 totalP += productSettings[key].price * qty;
                 totalC += productSettings[key].cost * qty;
             });
-
             document.getElementById('unitPrice').value = totalP.toFixed(2);
             document.getElementById('unitCost').value = totalC.toFixed(2);
         }
@@ -338,11 +339,10 @@
                 const btn = document.createElement('button');
                 btn.type = "button";
                 btn.onclick = () => openEditModal(key);
-                btn.className = `flex flex-col items-center bg-white border ${isEmpty ? 'border-red-200 bg-red-50/30' : 'border-slate-100'} py-2 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all`;
+                btn.className = `flex flex-col items-center bg-white border ${isEmpty ? 'border-red-200 bg-red-50/30' : 'border-slate-100'} py-2 rounded-xl hover:border-blue-300 transition-all`;
                 btn.innerHTML = `
-                    <span class="text-[9px] font-bold text-slate-400 uppercase">${key.split('-')[0]}</span>
-                    <span class="text-sm font-black ${isEmpty ? 'text-red-500' : (isLow ? 'text-amber-500' : 'text-slate-700')}">${stocks[key]}</span>
-                    <span class="text-[8px] text-emerald-500 font-bold mt-1">$${productSettings[key].cost}</span>
+                    <span class="text-[8px] font-bold text-slate-400 uppercase">${key.split('-')[0]}</span>
+                    <span class="text-xs md:text-sm font-black ${isEmpty ? 'text-red-500' : (isLow ? 'text-amber-500' : 'text-slate-700')}">${stocks[key]}</span>
                 `;
                 grid.appendChild(btn);
             });
@@ -363,11 +363,9 @@
         function confirmEditChange() {
             const newStock = parseInt(document.getElementById('editStockCount').value);
             const newCost = parseFloat(document.getElementById('editUnitCost').value);
-            
             if (!isNaN(newStock) && !isNaN(newCost)) {
                 stocks[currentEditingKey] = newStock;
                 productSettings[currentEditingKey].cost = newCost;
-                
                 initProductSelect();
                 initPackageList();
                 saveAndRender();
@@ -402,8 +400,6 @@
                 priceInput.value = data.price;
                 costInput.value = data.cost;
                 costInput.readOnly = true;
-
-                // 限制數量下拉選單最大值
                 const currentStock = stocks[this.value];
                 qtySelect.innerHTML = '';
                 for(let i=1; i<=currentStock; i++) {
@@ -427,9 +423,8 @@
                     const qty = parseInt(input.value) || 0;
                     if (qty > 0) {
                         const key = input.dataset.pkgKey;
-                        // 最終檢查
                         if (qty > stocks[key]) {
-                            alert(`${key} 庫存突然不足，請檢查！`);
+                            alert(`${key} 庫存突然不足！`);
                             throw new Error('Stock conflict');
                         }
                         items.push(`${key.split('-')[0]}x${qty}`);
@@ -437,18 +432,12 @@
                     }
                 });
                 finalName = "📦 套裝: " + items.join(', ');
-                if (items.length === 0) {
-                    alert("請至少輸入一項產品數量");
-                    return;
-                }
+                if (items.length === 0) return alert("請輸入數量");
             } else if (productType === 'other') {
                 finalName = document.getElementById('customName').value || "其他產品";
             } else {
                 const buyQty = parseInt(document.getElementById('quantity').value);
-                if (buyQty > stocks[productType]) {
-                    alert('庫存不足，無法提交交易！');
-                    return;
-                }
+                if (buyQty > stocks[productType]) return alert('庫存不足');
                 finalName = productType;
                 itemsToDeduct[productType] = buyQty;
             }
@@ -456,8 +445,8 @@
             const price = parseFloat(document.getElementById('unitPrice').value);
             const cost = parseFloat(document.getElementById('unitCost').value);
             const qty = parseInt(document.getElementById('quantity').value);
-            
             const isPackage = productType === 'package';
+
             const record = {
                 id: "ID-" + Date.now(),
                 date: document.getElementById('date').value,
@@ -471,21 +460,13 @@
                 status: 'active'
             };
 
-            // 扣庫存
-            Object.keys(itemsToDeduct).forEach(key => {
-                stocks[key] = Math.max(0, stocks[key] - itemsToDeduct[key]);
-            });
-
+            Object.keys(itemsToDeduct).forEach(key => stocks[key] -= itemsToDeduct[key]);
             transactions.unshift(record);
             syncQueue.push(record);
-            
-            // UI 更新
             initProductSelect();
             initPackageList();
             saveAndRender();
             processQueue();
-            
-            // 重置表單
             this.reset();
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
             document.getElementById('otherField').classList.add('hidden');
@@ -495,7 +476,7 @@
         });
 
         window.deleteRecord = function(id) {
-            if(confirm('確定要刪除這筆交易記錄嗎？（注意：此操作不會自動退回庫存，如有需要請手動調整庫存）')) {
+            if(confirm('確定要刪除這筆交易記錄嗎？')) {
                 const idx = transactions.findIndex(t => t.id === id);
                 if(idx > -1) {
                     const deletedItem = {...transactions[idx], status: 'del'};
@@ -513,11 +494,7 @@
             while(syncQueue.length > 0 && navigator.onLine) {
                 const item = syncQueue[0];
                 try {
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: JSON.stringify(item)
-                    });
+                    await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(item) });
                     syncQueue.shift();
                     save();
                 } catch (e) { break; }
@@ -531,7 +508,6 @@
             const empty = document.getElementById('emptyState');
             const initialCost = parseFloat(document.getElementById('initialBudget').value) || 0;
             list.innerHTML = '';
-            
             let totalRev = 0, totalSoldCost = 0, totalProfit = 0;
 
             if(transactions.length === 0) empty.classList.remove('hidden');
@@ -544,45 +520,42 @@
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-slate-50 transition-colors';
                     tr.innerHTML = `
-                        <td class="px-6 py-5 text-[11px] text-slate-400 font-bold">${item.date}</td>
-                        <td class="px-6 py-5">
-                            <div class="font-bold text-slate-800 text-sm truncate max-w-[200px]" title="${item.product}">${item.product}</div>
-                            <div class="text-[10px] text-slate-400 italic">數量 x${item.quantity} ${item.product.includes('📦') ? '(套裝組合)' : ''}</div>
+                        <td class="px-6 py-4 text-[10px] text-slate-400 font-bold">${item.date}</td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-800 text-xs md:text-sm truncate max-w-[150px] md:max-w-[200px]" title="${item.product}">${item.product}</div>
+                            <div class="text-[9px] text-slate-400 italic">x${item.quantity} ${item.product.includes('📦') ? '(套裝)' : ''}</div>
                         </td>
-                        <td class="px-6 py-5">
-                            <div class="text-[11px] font-medium text-blue-600">收入: $${item.total.toLocaleString()}</div>
-                            <div class="text-[11px] font-medium text-slate-400">成本: $${item.totalCost.toLocaleString()}</div>
+                        <td class="px-6 py-4">
+                            <div class="text-[10px] font-medium text-blue-600">收: $${item.total.toLocaleString()}</div>
+                            <div class="text-[10px] font-medium text-slate-400">支: $${item.totalCost.toLocaleString()}</div>
                         </td>
-                        <td class="px-6 py-5 text-right">
-                            <div class="font-black ${item.profit >= 0 ? 'profit-text' : 'loss-text'} text-sm">
+                        <td class="px-6 py-4 text-right">
+                            <div class="font-black ${item.profit >= 0 ? 'profit-text' : 'loss-text'} text-xs md:text-sm">
                                 ${item.profit >= 0 ? '+' : ''}$${item.profit.toLocaleString()}
                             </div>
                         </td>
-                        <td class="px-6 py-5 text-center">
-                            <button onclick="deleteRecord('${item.id}')" class="text-slate-200 hover:text-red-500 p-2 transition-colors"><i data-lucide="trash-2" size="14"></i></button>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="deleteRecord('${item.id}')" class="text-slate-200 hover:text-red-500 p-2"><i data-lucide="trash-2" size="14"></i></button>
                         </td>
                     `;
                     list.appendChild(tr);
                 });
             }
-            
             document.getElementById('totalRevenue').textContent = `$${totalRev.toLocaleString()}`;
             document.getElementById('totalCost').textContent = `$${totalSoldCost.toLocaleString()}`;
             document.getElementById('totalProfit').textContent = `$${totalProfit.toLocaleString()}`;
-            
             const netProfit = totalRev - initialCost;
             const netProfitEl = document.getElementById('netProfitDisplay');
             netProfitEl.textContent = `$${netProfit.toLocaleString()}`;
-            netProfitEl.className = `text-xl font-black ${netProfit < 0 ? 'text-red-500 animate-pulse' : 'text-emerald-600'}`;
-            
+            netProfitEl.className = `text-lg md:text-xl font-black ${netProfit < 0 ? 'text-red-500 animate-pulse' : 'text-emerald-600'}`;
             lucide.createIcons();
         }
 
         function updateStatus() {
             const el = document.getElementById('networkStatus');
             el.innerHTML = navigator.onLine 
-                ? `<span class="text-[10px] bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold">同步中</span>`
-                : `<span class="text-[10px] bg-red-100 text-red-600 px-3 py-1 rounded-full font-bold">離線中</span>`;
+                ? `<span class="text-[8px] md:text-[10px] bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full font-bold">同步中</span>`
+                : `<span class="text-[8px] md:text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold">離線</span>`;
             lucide.createIcons();
         }
 
@@ -594,11 +567,7 @@
             localStorage.setItem('saved_initial_cost', document.getElementById('initialBudget').value);
         }
 
-        function saveAndRender() {
-            save();
-            render();
-        }
-
+        function saveAndRender() { save(); render(); }
         const savedC = localStorage.getItem('saved_initial_cost');
         if(savedC) document.getElementById('initialBudget').value = savedC;
 
