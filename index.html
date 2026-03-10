@@ -20,6 +20,7 @@
         }
         .profit-text { color: #10b981; }
         .loss-text { color: #ef4444; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body class="min-h-screen text-slate-800 antialiased p-4 md:p-6">
@@ -34,7 +35,6 @@
                 <p class="text-slate-500 text-sm mt-1">財務成本、利潤分析及庫存連動</p>
             </div>
             
-            <!-- 成本設定區 -->
             <div class="glass-card px-6 py-4 rounded-2xl border-l-4 border-slate-500 flex flex-col sm:flex-row items-center gap-4">
                 <div class="text-center sm:text-left">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">已用總成本 (HKD)</p>
@@ -74,15 +74,12 @@
                     <p class="text-lg font-black text-emerald-600" id="totalProfit">$0</p>
                 </div>
             </div>
-            <!-- 庫存顯示小板 -->
             <div class="glass-card p-4 rounded-2xl lg:col-span-2 overflow-hidden">
                 <div class="flex justify-between items-center mb-2">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">產品剩餘存貨 (點擊修改)</p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">產品剩餘存貨與成本 (點擊修改)</p>
                     <i data-lucide="box" size="14" class="text-slate-300"></i>
                 </div>
-                <div id="stockGrid" class="grid grid-cols-4 gap-2">
-                    <!-- JS 生成庫存按鈕 -->
-                </div>
+                <div id="stockGrid" class="grid grid-cols-4 gap-2"></div>
             </div>
         </div>
 
@@ -94,14 +91,23 @@
                     <form id="transactionForm" class="space-y-4">
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">產品名稱</label>
-                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none transition-all">
+                            <select id="productSelect" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                                 <option value="" disabled selected>請選擇產品...</option>
-                                <option value="P1-磁懸浮" data-price="360" data-cost="240.2">P1-磁懸浮</option>
-                                <option value="P2-帆布袋" data-price="30" data-cost="14.2">P2-帆布袋</option>
-                                <option value="P3-毛巾" data-price="15" data-cost="5.66">P3-毛巾</option>
-                                <option value="P4-鎖匙扣" data-price="15" data-cost="5">P4-鎖匙扣</option>
+                                <option value="P1-磁懸浮">P1-磁懸浮</option>
+                                <option value="P2-帆布袋">P2-帆布袋</option>
+                                <option value="P3-毛巾">P3-毛巾</option>
+                                <option value="P4-鎖匙扣">P4-鎖匙扣</option>
+                                <option value="package" class="font-bold text-blue-600">📦 Package (套裝組合)</option>
                                 <option value="other">＋ 其他產品 (手動輸入)</option>
                             </select>
+                        </div>
+
+                        <!-- Package 專屬輸入區 -->
+                        <div id="packageField" class="hidden space-y-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 animate-in slide-in-from-top-2">
+                            <p class="text-[10px] font-bold text-blue-400 uppercase">Package 內容組合</p>
+                            <div id="packageList" class="space-y-2">
+                                <!-- 由 JS 動態生成產品數量輸入框 -->
+                            </div>
                         </div>
 
                         <div id="otherField" class="hidden space-y-1 animate-in fade-in">
@@ -111,17 +117,17 @@
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">成交售價</label>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">成交總額</label>
                                 <input type="number" step="0.01" id="unitPrice" required class="w-full px-4 py-3 bg-white border border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none" placeholder="0">
                             </div>
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">單個成本</label>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">總計成本</label>
                                 <input type="number" step="0.01" id="unitCost" required class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl outline-none" placeholder="0">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1">
+                            <div class="space-y-1" id="qtyContainer">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">數量</label>
                                 <select id="quantity" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"></select>
                             </div>
@@ -167,15 +173,26 @@
         </div>
     </div>
 
-    <!-- 庫存編輯 Modal -->
-    <div id="stockModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
+    <!-- 編輯產品內容 Modal (庫存 & 成本) -->
+    <div id="editModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
-            <h3 class="text-xl font-bold mb-4" id="modalTitle">修改存貨量</h3>
-            <p class="text-sm text-slate-500 mb-6">請輸入目前 <span id="targetProductName" class="font-bold text-blue-600"></span> 的剩餘數量。</p>
-            <input type="number" id="newStockCount" class="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-black outline-none mb-6 text-center" value="0">
+            <h3 class="text-xl font-bold mb-4" id="modalTitle">修改產品設定</h3>
+            <p class="text-sm text-slate-500 mb-6">修改 <span id="targetProductName" class="font-bold text-blue-600"></span> 的數據。</p>
+            
+            <div class="space-y-4 mb-6">
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">剩餘存貨量</label>
+                    <input type="number" id="editStockCount" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black outline-none text-center">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">單位成本 (HKD)</label>
+                    <input type="number" step="0.01" id="editUnitCost" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black outline-none text-center text-emerald-600">
+                </div>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
-                <button onclick="closeStockModal()" class="py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-50">取消</button>
-                <button onclick="confirmStockChange()" class="py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200">儲存變更</button>
+                <button onclick="closeEditModal()" class="py-3 rounded-xl font-bold text-slate-400 hover:bg-slate-50">取消</button>
+                <button onclick="confirmEditChange()" class="py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200">儲存變更</button>
             </div>
         </div>
     </div>
@@ -183,13 +200,23 @@
     <script>
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqAwQj-2MHcMFImO6IbSC7NGL_TEmsSfGoEHj-SvPNsUX-SnirFihFFywRSnOoxBD8ng/exec';
         
+        // 產品資料庫 (預設)
+        const DEFAULT_PRODUCT_DB = {
+            "P1-磁懸浮": { price: 360, cost: 240.2 },
+            "P2-帆布袋": { price: 30, cost: 14.2 },
+            "P3-毛巾": { price: 15, cost: 5.66 },
+            "P4-鎖匙扣": { price: 15, cost: 5 }
+        };
+
+        // 從 LocalStorage 載入資料
+        let productSettings = JSON.parse(localStorage.getItem('product_settings')) || DEFAULT_PRODUCT_DB;
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
         let syncQueue = JSON.parse(localStorage.getItem('sync_queue')) || [];
         let stocks = JSON.parse(localStorage.getItem('stocks')) || {
             "P1-磁懸浮": 10, "P2-帆布袋": 50, "P3-毛巾": 100, "P4-鎖匙扣": 100
         };
         let isSyncing = false;
-        let currentEditingStockKey = null;
+        let currentEditingKey = null;
 
         function init() {
             lucide.createIcons();
@@ -202,9 +229,8 @@
                 qtySelect.appendChild(opt);
             }
 
-            // 監聽已用成本變動
+            initPackageList();
             document.getElementById('initialBudget').addEventListener('input', saveAndRender);
-
             updateStatus();
             render();
             processQueue();
@@ -213,38 +239,97 @@
             window.addEventListener('offline', updateStatus);
         }
 
+        // 初始化 Package 內容清單
+        function initPackageList() {
+            const container = document.getElementById('packageList');
+            container.innerHTML = '';
+            Object.keys(productSettings).forEach(key => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between gap-3 py-1 border-b border-slate-50 last:border-0";
+                div.innerHTML = `
+                    <span class="text-[11px] text-slate-700 font-medium truncate flex-grow mr-2">${key}</span>
+                    <div class="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
+                        <button type="button" onclick="stepPkg('${key}', -1)" class="px-2 py-1 hover:bg-slate-50 text-slate-400">-</button>
+                        <input type="number" data-pkg-key="${key}" value="0" min="0" 
+                            class="pkg-input w-10 text-center text-xs font-bold outline-none border-x border-slate-100 py-1"
+                            onchange="calculatePackageTotal()">
+                        <button type="button" onclick="stepPkg('${key}', 1)" class="px-2 py-1 hover:bg-slate-50 text-slate-400">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        window.stepPkg = (key, step) => {
+            const input = document.querySelector(`input[data-pkg-key="${key}"]`);
+            input.value = Math.max(0, parseInt(input.value) + step);
+            calculatePackageTotal();
+        };
+
+        function calculatePackageTotal() {
+            if (document.getElementById('productSelect').value !== 'package') return;
+            
+            let totalP = 0;
+            let totalC = 0;
+            const inputs = document.querySelectorAll('.pkg-input');
+            inputs.forEach(input => {
+                const key = input.dataset.pkgKey;
+                const qty = parseInt(input.value) || 0;
+                totalP += productSettings[key].price * qty;
+                totalC += productSettings[key].cost * qty;
+            });
+
+            document.getElementById('unitPrice').value = totalP.toFixed(2);
+            document.getElementById('unitCost').value = totalC.toFixed(2);
+        }
+
         function renderStocks() {
             const grid = document.getElementById('stockGrid');
             grid.innerHTML = '';
             Object.keys(stocks).forEach(key => {
                 const btn = document.createElement('button');
-                btn.onclick = () => openStockModal(key);
+                btn.type = "button";
+                btn.onclick = () => openEditModal(key);
                 btn.className = "flex flex-col items-center bg-white border border-slate-100 py-2 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all";
                 btn.innerHTML = `
                     <span class="text-[9px] font-bold text-slate-400 uppercase">${key.split('-')[0]}</span>
                     <span class="text-sm font-black text-slate-700">${stocks[key]}</span>
+                    <span class="text-[8px] text-emerald-500 font-bold mt-1">$${productSettings[key].cost}</span>
                 `;
                 grid.appendChild(btn);
             });
         }
 
-        function openStockModal(key) {
-            currentEditingStockKey = key;
+        function openEditModal(key) {
+            currentEditingKey = key;
             document.getElementById('targetProductName').textContent = key;
-            document.getElementById('newStockCount').value = stocks[key];
-            document.getElementById('stockModal').classList.remove('hidden');
+            document.getElementById('editStockCount').value = stocks[key];
+            document.getElementById('editUnitCost').value = productSettings[key].cost;
+            document.getElementById('editModal').classList.remove('hidden');
         }
 
-        function closeStockModal() {
-            document.getElementById('stockModal').classList.add('hidden');
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
         }
 
-        function confirmStockChange() {
-            const newVal = parseInt(document.getElementById('newStockCount').value);
-            if (!isNaN(newVal)) {
-                stocks[currentEditingStockKey] = newVal;
+        function confirmEditChange() {
+            const newStock = parseInt(document.getElementById('editStockCount').value);
+            const newCost = parseFloat(document.getElementById('editUnitCost').value);
+            
+            if (!isNaN(newStock) && !isNaN(newCost)) {
+                stocks[currentEditingKey] = newStock;
+                productSettings[currentEditingKey].cost = newCost;
+                
+                // 如果當前選擇的是該產品或 Package，重新計算金額
+                const currentSelect = document.getElementById('productSelect').value;
+                if (currentSelect === 'package') {
+                    calculatePackageTotal();
+                } else if (currentSelect === currentEditingKey) {
+                    document.getElementById('unitCost').value = newCost;
+                }
+                
                 saveAndRender();
-                closeStockModal();
+                closeEditModal();
             }
         }
 
@@ -252,55 +337,99 @@
             const priceInput = document.getElementById('unitPrice');
             const costInput = document.getElementById('unitCost');
             const otherField = document.getElementById('otherField');
+            const pkgField = document.getElementById('packageField');
+            const qtyContainer = document.getElementById('qtyContainer');
             
+            // 重置
+            otherField.classList.add('hidden');
+            pkgField.classList.add('hidden');
+            qtyContainer.classList.remove('invisible');
+            priceInput.readOnly = false;
+            costInput.readOnly = false;
+
             if (this.value === 'other') {
                 otherField.classList.remove('hidden');
                 priceInput.value = ''; costInput.value = '';
-                priceInput.readOnly = false; costInput.readOnly = false;
                 priceInput.focus();
-            } else {
-                otherField.classList.add('hidden');
-                priceInput.value = this.options[this.selectedIndex].dataset.price;
-                costInput.value = this.options[this.selectedIndex].dataset.cost;
-                priceInput.readOnly = false;
+            } else if (this.value === 'package') {
+                pkgField.classList.remove('hidden');
+                qtyContainer.classList.add('invisible'); 
+                document.getElementById('quantity').value = 1;
+                calculatePackageTotal();
+            } else if (this.value) {
+                const data = productSettings[this.value];
+                priceInput.value = data.price;
+                costInput.value = data.cost;
                 costInput.readOnly = true;
             }
         });
 
         document.getElementById('transactionForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const productVal = document.getElementById('productSelect').value;
-            const finalProduct = productVal === 'other' ? document.getElementById('customName').value : productVal;
+            const productType = document.getElementById('productSelect').value;
+            let finalName = "";
+            let itemsToDeduct = {};
+
+            if (productType === 'package') {
+                const items = [];
+                const inputs = document.querySelectorAll('.pkg-input');
+                inputs.forEach(input => {
+                    const qty = parseInt(input.value) || 0;
+                    if (qty > 0) {
+                        const key = input.dataset.pkgKey;
+                        items.push(`${key.split('-')[0]}x${qty}`);
+                        itemsToDeduct[key] = qty;
+                    }
+                });
+                finalName = "📦 套裝: " + items.join(', ');
+                if (items.length === 0) {
+                    alert("請至少輸入一項產品數量");
+                    return;
+                }
+            } else if (productType === 'other') {
+                finalName = document.getElementById('customName').value || "其他產品";
+            } else {
+                finalName = productType;
+                itemsToDeduct[productType] = parseInt(document.getElementById('quantity').value);
+            }
+
             const price = parseFloat(document.getElementById('unitPrice').value);
             const cost = parseFloat(document.getElementById('unitCost').value);
             const qty = parseInt(document.getElementById('quantity').value);
             
+            const isPackage = productType === 'package';
             const record = {
                 id: "ID-" + Date.now(),
                 date: document.getElementById('date').value,
-                product: finalProduct,
+                product: finalName,
                 quantity: qty,
-                price: price,
+                price: price, 
                 cost: cost,
-                total: price * qty,
-                totalCost: cost * qty,
-                profit: (price - cost) * qty,
+                total: price * (isPackage ? 1 : qty),
+                totalCost: cost * (isPackage ? 1 : qty),
+                profit: (price - cost) * (isPackage ? 1 : qty),
                 status: 'active'
             };
 
-            // 自動扣減庫存
-            if (stocks[finalProduct] !== undefined) {
-                stocks[finalProduct] = Math.max(0, stocks[finalProduct] - qty);
-            }
+            // 扣庫存
+            Object.keys(itemsToDeduct).forEach(key => {
+                if (stocks[key] !== undefined) {
+                    stocks[key] = Math.max(0, stocks[key] - itemsToDeduct[key]);
+                }
+            });
 
             transactions.unshift(record);
             syncQueue.push(record);
             saveAndRender();
             processQueue();
             
+            // 重置表單
             this.reset();
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
             document.getElementById('otherField').classList.add('hidden');
+            document.getElementById('packageField').classList.add('hidden');
+            document.getElementById('qtyContainer').classList.remove('invisible');
+            document.querySelectorAll('.pkg-input').forEach(i => i.value = 0);
         });
 
         window.deleteRecord = function(id) {
@@ -355,7 +484,7 @@
                     tr.innerHTML = `
                         <td class="px-6 py-5 text-[11px] text-slate-400 font-bold">${item.date}</td>
                         <td class="px-6 py-5">
-                            <div class="font-bold text-slate-800 text-sm">${item.product}</div>
+                            <div class="font-bold text-slate-800 text-sm truncate max-w-[200px]" title="${item.product}">${item.product}</div>
                             <div class="text-[10px] text-slate-400 italic">數量 x${item.quantity}</div>
                         </td>
                         <td class="px-6 py-5">
@@ -368,7 +497,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-5 text-center">
-                            <button onclick="deleteRecord('${item.id}')" class="text-slate-200 hover:text-red-500 p-2"><i data-lucide="trash-2" size="14"></i></button>
+                            <button onclick="deleteRecord('${item.id}')" class="text-slate-200 hover:text-red-500 p-2 transition-colors"><i data-lucide="trash-2" size="14"></i></button>
                         </td>
                     `;
                     list.appendChild(tr);
@@ -379,7 +508,6 @@
             document.getElementById('totalCost').textContent = `$${totalSoldCost.toLocaleString()}`;
             document.getElementById('totalProfit').textContent = `$${totalProfit.toLocaleString()}`;
             
-            // 淨利 = 累積總收入 - 已用總成本
             const netProfit = totalRev - initialCost;
             const netProfitEl = document.getElementById('netProfitDisplay');
             netProfitEl.textContent = `$${netProfit.toLocaleString()}`;
@@ -405,6 +533,7 @@
             localStorage.setItem('transactions', JSON.stringify(transactions));
             localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
             localStorage.setItem('stocks', JSON.stringify(stocks));
+            localStorage.setItem('product_settings', JSON.stringify(productSettings));
             localStorage.setItem('saved_initial_cost', document.getElementById('initialBudget').value);
         }
 
