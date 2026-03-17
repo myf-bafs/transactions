@@ -32,7 +32,6 @@
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         }
 
-        /* 摺疊動畫 */
         .accordion-content { 
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
             overflow: hidden; 
@@ -40,16 +39,8 @@
         .accordion-content.collapsed { max-height: 0; opacity: 0; }
         .accordion-content.expanded { max-height: 5000px; opacity: 1; }
         
-        /* 自定義捲軸 */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-        /* 行動端調整 */
-        @media (max-width: 640px) {
-            .mobile-grid { grid-template-columns: 1fr; }
-            .mobile-hide { display: none; }
-            input, select, button { font-size: 16px !important; } /* 防止 iOS 自動縮放 */
-        }
 
         @keyframes pulse-blue {
             0%, 100% { background-color: #3b82f6; opacity: 1; }
@@ -58,6 +49,7 @@
         .syncing { animation: pulse-blue 1s infinite; color: white !important; }
         .sync-success { background-color: #10b981 !important; color: white !important; }
         .sync-error { background-color: #ef4444 !important; color: white !important; }
+        .sync-pending { background-color: #f59e0b !important; color: white !important; }
     </style>
 </head>
 <body class="min-h-screen text-slate-800 pb-12">
@@ -81,7 +73,7 @@
     </header>
 
     <div class="max-w-7xl mx-auto px-4 pt-6 space-y-6">
-        <!-- 功能分頁切換 -->
+        <!-- 分頁切換 -->
         <nav class="flex p-1.5 bg-slate-200/50 rounded-2xl w-full max-w-md mx-auto border border-slate-200">
             <button onclick="switchTab('management')" id="tab-management" class="flex-1 py-2.5 text-xs font-bold rounded-xl tab-active transition-all">交易錄入</button>
             <button onclick="switchTab('daily')" id="tab-daily" class="flex-1 py-2.5 text-xs font-bold rounded-xl text-slate-500 transition-all">歷史明細</button>
@@ -110,7 +102,7 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- 左側：錄入表單 -->
+                <!-- 錄入表單 -->
                 <div class="lg:col-span-5 xl:col-span-4">
                     <div class="glass-card p-6 rounded-3xl shadow-sm border border-blue-100">
                         <h2 class="text-md font-bold mb-6 flex items-center gap-2 border-l-4 border-blue-600 pl-4">新交易錄入</h2>
@@ -140,12 +132,10 @@
                     </div>
                 </div>
 
-                <!-- 右側 -->
+                <!-- 庫存與最近紀錄 -->
                 <div class="lg:col-span-7 xl:col-span-8 space-y-6">
                     <div class="glass-card p-5 rounded-3xl shadow-sm">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider">即時庫存狀況</h3>
-                        </div>
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">即時庫存狀況</h3>
                         <div id="stockGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
                     </div>
 
@@ -160,7 +150,7 @@
             </div>
         </div>
 
-        <!-- 歷史明細 -->
+        <!-- 歷史明細分頁 -->
         <div id="page-daily" class="tab-content hidden space-y-4">
             <div id="accordionContainer" class="space-y-3"></div>
             <div id="emptyDaily" class="hidden py-20 text-center text-slate-400 bg-white rounded-3xl border border-dashed border-slate-200">
@@ -168,7 +158,7 @@
             </div>
         </div>
 
-        <!-- 系統設定 -->
+        <!-- 系統設定分頁 -->
         <div id="page-reports" class="tab-content hidden">
             <div class="glass-card p-6 rounded-3xl shadow-sm">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -182,12 +172,12 @@
         </div>
     </div>
 
-    <!-- Modal 略... -->
+    <!-- 編輯 Modal -->
     <div id="editModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 w-full max-w-md">
             <h3 class="text-lg font-bold mb-6" id="modalTitle">產品管理</h3>
             <div class="space-y-4">
-                <div id="keyInputGroup" class="hidden"><input type="text" id="editKey" placeholder="產品代號 (如 P5)" class="w-full p-4 bg-slate-50 rounded-xl outline-none border"></div>
+                <div id="keyInputGroup" class="hidden"><input type="text" id="editKey" placeholder="產品代號" class="w-full p-4 bg-slate-50 rounded-xl outline-none border"></div>
                 <div><input type="text" id="editName" placeholder="產品名稱" class="w-full p-4 bg-slate-50 rounded-xl outline-none border"></div>
                 <div class="grid grid-cols-2 gap-4">
                     <input type="number" id="editPrice" placeholder="預設售價" class="w-full p-4 bg-slate-50 rounded-xl outline-none border">
@@ -203,7 +193,6 @@
     </div>
 
     <script>
-        // 配置 Google Script URL
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqAwQj-2MHcMFImO6IbSC7NGL_TEmsSfGoEHj-SvPNsUX-SnirFihFFywRSnOoxBD8ng/exec';
 
         const defaultSettings = {
@@ -215,9 +204,11 @@
 
         let productData = JSON.parse(localStorage.getItem('product_data')) || defaultSettings;
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let syncQueue = JSON.parse(localStorage.getItem('sync_queue')) || [];
         let openDates = new Set();
         let currentEditKey = null;
         let isAddingMode = false;
+        let isSyncing = false;
 
         function init() {
             lucide.createIcons();
@@ -226,36 +217,105 @@
             initProductSelect();
             initQuantitySelect();
             render();
+            
+            // 頁面初始化後檢查同步隊列
+            processQueue();
+
+            // 監聽網路連線恢復事件
+            window.addEventListener('online', () => {
+                console.log('網路已恢復，準備補傳數據...');
+                processQueue();
+            });
         }
 
-        // 同步數據到雲端
-        async function syncToCloud(payload) {
-            const indicator = document.getElementById('syncIndicator');
-            const text = document.getElementById('syncText');
-            
-            indicator.classList.add('syncing');
-            text.textContent = "同步中";
+        // 核心同步邏輯（含錯誤捕捉與隊列儲存）
+        async function syncToCloud(payload, isFromQueue = false) {
+            updateSyncStatus('syncing', "同步中...");
 
             try {
-                // 使用 fetch 發送到 GAS
-                await fetch(GOOGLE_SCRIPT_URL, {
+                // 如果是新資料，先嘗試發送
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超時
+
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
                 
-                indicator.classList.remove('syncing');
-                indicator.classList.add('sync-success');
-                text.textContent = "已同步";
-                setTimeout(() => {
-                    indicator.classList.remove('sync-success');
-                    text.textContent = "雲端";
-                }, 2000);
+                clearTimeout(timeoutId);
+                updateSyncStatus('success', "已同步");
+                return true;
             } catch (error) {
-                console.error("Sync failed:", error);
-                indicator.classList.remove('syncing');
-                indicator.classList.add('sync-error');
-                text.textContent = "失敗";
+                console.warn("同步失敗，加入緩存隊列:", error);
+                
+                // 如果不是從隊列來的（是即時錄入），則加入隊列
+                if (!isFromQueue) {
+                    addToQueue(payload);
+                }
+                
+                updateSyncStatus('pending', `待連線 (${syncQueue.length})`);
+                return false;
+            }
+        }
+
+        function addToQueue(payload) {
+            syncQueue.push(payload);
+            localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
+        }
+
+        async function processQueue() {
+            if (isSyncing || syncQueue.length === 0) return;
+            if (!navigator.onLine) {
+                updateSyncStatus('pending', `待連線 (${syncQueue.length})`);
+                return;
+            }
+
+            isSyncing = true;
+            console.log(`正在處理同步隊列，共 ${syncQueue.length} 筆...`);
+
+            const remainingQueue = [];
+            
+            // 逐筆發送
+            for (const item of syncQueue) {
+                updateSyncStatus('syncing', `補傳中(${syncQueue.indexOf(item) + 1}/${syncQueue.length})`);
+                const success = await syncToCloud(item, true);
+                if (!success) {
+                    // 如果補傳過程中又斷了，剩下的繼續保留
+                    remainingQueue.push(item);
+                    // 剩下的也全部保留
+                    const currentIndex = syncQueue.indexOf(item);
+                    remainingQueue.push(...syncQueue.slice(currentIndex + 1));
+                    break;
+                }
+            }
+
+            syncQueue = remainingQueue;
+            localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
+            isSyncing = false;
+
+            if (syncQueue.length === 0) {
+                updateSyncStatus('success', "雲端同步成功");
+                setTimeout(() => updateSyncStatus('default', "雲端"), 3000);
+            } else {
+                updateSyncStatus('pending', `待連線 (${syncQueue.length})`);
+            }
+        }
+
+        function updateSyncStatus(state, text) {
+            const indicator = document.getElementById('syncIndicator');
+            const syncText = document.getElementById('syncText');
+            
+            indicator.className = "text-[10px] px-2 py-0.5 rounded-full transition-colors duration-300 ";
+            syncText.textContent = text;
+
+            switch(state) {
+                case 'syncing': indicator.classList.add('syncing'); break;
+                case 'success': indicator.classList.add('sync-success'); break;
+                case 'error': indicator.classList.add('sync-error'); break;
+                case 'pending': indicator.classList.add('sync-pending'); break;
+                default: indicator.classList.add('bg-slate-700', 'text-slate-400'); break;
             }
         }
 
@@ -311,22 +371,22 @@
                 id: "TRX-" + Date.now(),
                 date: document.getElementById('date').value,
                 productKey: key,
-                product: productData[key].name, // GAS 使用此欄位
+                product: productData[key].name,
                 quantity: qty,
                 price: price,
                 total: price * qty,
                 profit: (price - productData[key].cost) * qty,
-                status: 'active', // GAS 使用此欄位
+                status: 'active',
                 timestamp: Date.now()
             };
 
-            // 1. 本地更新
+            // 本地優先更新
             transactions.unshift(record);
             productData[key].stock -= qty;
             saveAll();
             render();
             
-            // 2. 雲端同步
+            // 嘗試同步（失敗會自動排隊）
             syncToCloud(record);
 
             this.reset();
@@ -340,7 +400,6 @@
                 const t = transactions[index];
                 if(productData[t.productKey]) productData[t.productKey].stock += t.quantity;
                 
-                // 雲端同步刪除標記
                 syncToCloud({ ...t, status: 'del' });
 
                 transactions.splice(index, 1);
@@ -511,7 +570,7 @@
         };
 
         window.deleteProduct = (key) => {
-            if(confirm(`確定刪除 ${key}？相關紀錄將保留但無法再選擇錄入。`)) {
+            if(confirm(`確定刪除 ${key}？`)) {
                 delete productData[key];
                 saveAll();
                 initProductSelect();
