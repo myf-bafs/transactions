@@ -71,9 +71,7 @@
 
     <div class="max-w-4xl mx-auto p-4 space-y-6">
         <!-- 數據概覽 -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="stats-container">
-            <!-- 由 JS 動態注入 -->
-        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="stats-container"></div>
 
         <!-- 分頁控制 -->
         <div class="flex bg-slate-200/50 p-1.5 rounded-2xl border border-white">
@@ -117,7 +115,7 @@
                 </div>
                 <!-- 庫存列表 -->
                 <div class="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
-                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 italic">Stock Monitor</h3>
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 italic">庫存監控</h3>
                     <div id="stock-list" class="space-y-3 max-h-[400px] overflow-y-auto"></div>
                 </div>
             </div>
@@ -132,27 +130,27 @@
         <div id="tab-config" class="hidden space-y-6">
             <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-sm font-black text-slate-800 uppercase italic">Product Config</h3>
+                    <h3 class="text-sm font-black text-slate-800 uppercase italic">產品設定</h3>
                     <button onclick="toggleModal(true)" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg">新增產品</button>
                 </div>
                 <div id="config-list" class="space-y-4"></div>
             </div>
             
             <div class="bg-indigo-600 p-8 rounded-[2.5rem] text-white space-y-4 shadow-xl shadow-indigo-200">
-                <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-2 opacity-80"><i data-lucide="settings" class="w-4 h-4"></i> 固定預算</h3>
+                <h3 class="text-xs font-black uppercase tracking-widest flex items-center gap-2 opacity-80"><i data-lucide="settings" class="w-4 h-4"></i> 固定營運預算</h3>
                 <input type="number" id="config-budget" class="bg-transparent border-none text-5xl font-black focus:ring-0 p-0 w-full" placeholder="0.00">
             </div>
         </div>
     </div>
 
-    <!-- 同步彈窗 -->
+    <!-- 極速同步彈窗 -->
     <div id="sync-popup" class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm">
         <div class="bg-slate-900/90 backdrop-blur-xl text-white px-6 py-5 rounded-[2rem] shadow-2xl flex items-center justify-between border border-white/10">
             <div class="flex items-center gap-4">
-                <i data-lucide="zap" class="text-amber-400 w-5 h-5 fill-amber-400"></i>
+                <i data-lucide="zap" class="text-amber-400 w-5 h-5 fill-amber-400 animate-pulse"></i>
                 <div>
-                    <p class="text-[11px] font-black tracking-widest uppercase italic">極速同步中...</p>
-                    <p id="sync-status-detail" class="text-[9px] font-bold text-slate-400">正在批次傳送所有變更</p>
+                    <p class="text-[11px] font-black tracking-widest uppercase italic">雲端同步中...</p>
+                    <p id="sync-status-detail" class="text-[9px] font-bold text-slate-400">正在處理變更隊列</p>
                 </div>
             </div>
         </div>
@@ -186,7 +184,7 @@
                 "P2": { name: "設計帆布袋", price: 30, cost: 14, stock: 50 }
             },
             txs: [],
-            queue: [], // 待同步隊列
+            queue: [],
             budget: "3000"
         };
 
@@ -209,7 +207,7 @@
                 ${StatCard('本期總收', `$${totalRev.toLocaleString()}`, 'dollar-sign', 'blue')}
                 ${StatCard('預計利潤', `$${totalProfit.toLocaleString()}`, 'trending-up', 'emerald')}
                 ${StatCard('基礎預算', `$${parseFloat(db.budget).toLocaleString()}`, 'settings', 'slate')}
-                ${StatCard('待同步項', db.queue.length, 'zap', db.queue.length > 0 ? 'amber' : 'emerald')}
+                ${StatCard('待同步', db.queue.length, 'zap', db.queue.length > 0 ? 'amber' : 'emerald')}
             `;
             document.getElementById('stats-container').innerHTML = statsHtml;
 
@@ -217,7 +215,7 @@
             const syncText = document.getElementById('sync-text');
             if (db.queue.length > 0) {
                 syncDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 syncing-dot';
-                syncText.innerText = `準備秒同步 (${db.queue.length})`;
+                syncText.innerText = `準備同步 (${db.queue.length})`;
             } else {
                 syncDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
                 syncText.innerText = '雲端已同步';
@@ -360,7 +358,7 @@
             }
         }
 
-        // 修改後的同步邏輯：批次處理
+        // 修改後的同步邏輯：批次且立即處理
         async function autoSync() {
             if (db.queue.length === 0 || syncing || !navigator.onLine) return;
             
@@ -369,14 +367,12 @@
             const detail = document.getElementById('sync-status-detail');
             popup.classList.remove('hidden');
             
-            // 複製目前的隊列並清空原隊列，避免在同步過程中產生的新交易被丟棄
             const batchToSync = [...db.queue];
             const batchSize = batchToSync.length;
-            detail.innerText = `正在批次同步 ${batchSize} 筆變更...`;
+            detail.innerText = `正在更新雲端 (${batchSize} 筆變更)...`;
 
             try {
-                // 如果你的 GAS 腳本支援接收陣列，可以直接傳送整個 batchToSync
-                // 如果只支援一筆一筆，我們可以用 Promise.all 併發處理
+                // 使用 Promise.all 同時發送請求以加速
                 const syncPromises = batchToSync.map(item => 
                     fetch(API_URL, {
                         method: 'POST',
@@ -389,22 +385,20 @@
 
                 await Promise.all(syncPromises);
 
-                // 成功後，從 db.queue 中移除已經成功同步的項
-                // 注意：這期間 db.queue 可能增加了新項，所以要用 filter 根據 id 移除
+                // 同步成功後移除對應項目
                 const batchIds = batchToSync.map(b => b.id || b.timestamp);
                 db.queue = db.queue.filter(q => !batchIds.includes(q.id || q.timestamp));
                 saveDb();
                 
             } catch (e) {
-                console.error("批次同步失敗:", e);
-                detail.innerText = "同步失敗，稍後重試...";
+                console.error("同步失敗:", e);
+                detail.innerText = "連線不穩，稍後重試...";
             } finally {
                 syncing = false;
                 if (db.queue.length === 0) {
                     setTimeout(() => popup.classList.add('hidden'), 1000);
                 } else {
-                    // 如果還有剩餘（例如同步過程中新增的），立即再次啟動
-                    setTimeout(autoSync, 500);
+                    setTimeout(autoSync, 1000);
                 }
             }
         }
@@ -426,7 +420,8 @@
                 price: price,
                 total: price * qty,
                 profit: (price - prod.cost) * qty,
-                action: 'ADD',
+                action: 'ADD', // 這裡是新增動作
+                status: '已入帳',
                 timestamp: new Date().toISOString()
             };
 
@@ -437,18 +432,22 @@
             
             e.target.reset();
             document.getElementById('fd-date').value = new Date().toISOString().split('T')[0];
-            autoSync(); // 立即觸發同步
+            autoSync();
         };
 
         function deleteTx(id) {
             const idx = db.txs.findIndex(t => t.id === id);
             if (idx === -1) return;
             const tx = db.txs[idx];
-            if (!confirm("確定撤銷此交易？")) return;
+            if (!confirm("確定刪除此交易？雲端狀態將更新為「刪除」。")) return;
 
+            // 重要：發送 action: 'DEL' 並指定 status 為 '刪除'
+            // GAS 端收到後應搜尋對應 id 的列，並將狀態欄位更新
             db.queue.push({
                 id: tx.id,
+                date: tx.date,
                 action: 'DEL',
+                status: '刪除', // 目標狀態
                 product: tx.product,
                 timestamp: new Date().toISOString()
             });
@@ -456,7 +455,7 @@
             if(db.prods[tx.productKey]) db.prods[tx.productKey].stock += tx.qty;
             db.txs.splice(idx, 1);
             saveDb();
-            autoSync(); // 立即觸發同步
+            autoSync();
         }
 
         function updateProd(key, field, val) {
@@ -495,8 +494,8 @@
             document.getElementById('fd-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('config-budget').value = db.budget;
             render();
-            // 每 30 秒自動檢查一次（作為保險），其餘時間靠操作觸發
-            setInterval(autoSync, 30000);
+            // 每分鐘保險同步一次
+            setInterval(autoSync, 60000);
         };
     </script>
 </body>
