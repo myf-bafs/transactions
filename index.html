@@ -19,6 +19,30 @@
             box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.1); outline: none;
         }
         .tab-active { background: white; color: #6366f1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        /* 動畫效果 */
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .syncing-dot { animation: pulse-soft 2s infinite; }
+
+        /* 摺疊動畫 */
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.expanded {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }
+        .rotate-icon {
+            transition: transform 0.3s ease;
+        }
+        .rotate-icon.active {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-900 pb-32">
@@ -53,7 +77,7 @@
 
         <!-- 分頁控制 -->
         <div class="flex bg-slate-200/50 p-1.5 rounded-2xl border border-white">
-            <button onclick="switchTab('input')" id="btn-input" class="tab-active flex-1 py-3.5 text-[11px] font-black rounded-[1.25rem] transition-all">數據錄入</button>
+            <button onclick="switchTab('input')" id="btn-input" class="tab-active flex-1 py-3.5 text-[11px] font-black rounded-[1.25rem] transition-all text-slate-400">數據錄入</button>
             <button onclick="switchTab('history')" id="btn-history" class="flex-1 py-3.5 text-[11px] font-black rounded-[1.25rem] transition-all text-slate-400">歷史帳目</button>
             <button onclick="switchTab('config')" id="btn-config" class="flex-1 py-3.5 text-[11px] font-black rounded-[1.25rem] transition-all text-slate-400">系統設定</button>
         </div>
@@ -73,7 +97,7 @@
                             </div>
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase ml-1 italic">產品</label>
-                                <select id="fd-prod" class="input-v5" required></select>
+                                <select id="fd-prod" class="input-v5" onchange="autoFillPrice()" required></select>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
@@ -99,9 +123,11 @@
             </div>
         </div>
 
-        <!-- 歷史帳目頁面 (隱藏) -->
+        <!-- 歷史帳目頁面 (日期分組摺疊) -->
         <div id="tab-history" class="hidden space-y-4">
-            <div id="history-list" class="space-y-4"></div>
+            <div id="history-groups" class="space-y-6">
+                <!-- 由 JS 動態注入分組 -->
+            </div>
         </div>
 
         <!-- 系統設定頁面 (隱藏) -->
@@ -128,7 +154,7 @@
                 <i data-lucide="refresh-cw" class="animate-spin text-indigo-400 w-5 h-5"></i>
                 <div>
                     <p class="text-[11px] font-black tracking-widest uppercase italic">正在同步至 Google Sheets...</p>
-                    <p class="text-[9px] font-bold text-slate-400">這可能需要幾秒鐘</p>
+                    <p id="sync-status-detail" class="text-[9px] font-bold text-slate-400">正在處理待辦隊列</p>
                 </div>
             </div>
         </div>
@@ -144,7 +170,7 @@
             <form id="new-prod-form" class="space-y-4">
                 <input id="np-key" placeholder="產品 ID (如 P1)" class="input-v5" required>
                 <input id="np-name" placeholder="產品名稱" class="input-v5" required>
-                <input id="np-price" type="number" step="0.1" placeholder="售價" class="input-v5" required>
+                <input id="np-price" type="number" step="0.1" placeholder="預設售價" class="input-v5" required>
                 <input id="np-cost" type="number" step="0.1" placeholder="成本" class="input-v5" required>
                 <input id="np-stock" type="number" placeholder="初始庫存" class="input-v5" required>
                 <button type="submit" class="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl">建立品項</button>
@@ -154,9 +180,8 @@
 
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        const API_URL = 'YOUR_APPS_SCRIPT_URL_HERE'; // 替換為你的 GAS URL
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwqAwQj-2MHcMFImO6IbSC7NGL_TEmsSfGoEHj-SvPNsUX-SnirFihFFywRSnOoxBD8ng/exec';
 
-        // --- 初始化資料庫 ---
         let db = JSON.parse(localStorage.getItem('biz_v5_db')) || {
             prods: {
                 "P1": { name: "磁懸浮藝術品", price: 360, cost: 240, stock: 10 },
@@ -167,14 +192,15 @@
             budget: "3000"
         };
 
+        // 紀錄摺疊狀態
+        let collapsedDates = {};
+
         function saveDb() {
             localStorage.setItem('biz_v5_db', JSON.stringify(db));
             render();
         }
 
-        // --- 核心渲染函數 ---
         function render() {
-            // 更新統計
             const totalRev = db.txs.reduce((s, t) => s + t.total, 0);
             const totalProfit = db.txs.reduce((s, t) => s + t.profit, 0);
             const net = totalRev - parseFloat(db.budget || 0);
@@ -185,9 +211,19 @@
                 ${StatCard('本期總收', `$${totalRev.toLocaleString()}`, 'dollar-sign', 'blue')}
                 ${StatCard('預計利潤', `$${totalProfit.toLocaleString()}`, 'trending-up', 'emerald')}
                 ${StatCard('基礎預算', `$${parseFloat(db.budget).toLocaleString()}`, 'settings', 'slate')}
-                ${StatCard('待同步項', db.queue.length, 'refresh-cw', 'amber')}
+                ${StatCard('待同步項', db.queue.length, 'refresh-cw', db.queue.length > 0 ? 'amber' : 'emerald')}
             `;
             document.getElementById('stats-container').innerHTML = statsHtml;
+
+            const syncDot = document.getElementById('sync-dot');
+            const syncText = document.getElementById('sync-text');
+            if (db.queue.length > 0) {
+                syncDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 syncing-dot';
+                syncText.innerText = `等待同步 (${db.queue.length})`;
+            } else {
+                syncDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+                syncText.innerText = '雲端已同步';
+            }
 
             // 更新產品下拉選單
             const prodSelect = document.getElementById('fd-prod');
@@ -210,22 +246,8 @@
                 </div>
             `).join('');
 
-            // 更新歷史紀錄
-            document.getElementById('history-list').innerHTML = db.txs.map(t => `
-                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <button onclick="deleteTx('${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                        <div>
-                            <p class="text-sm font-black text-slate-800">${t.product}</p>
-                            <p class="text-[10px] font-bold text-slate-400">${t.date} · ${t.qty}件 @ $${t.price}</p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-black text-slate-900">$${t.total.toLocaleString()}</p>
-                        <p class="text-[9px] font-bold text-emerald-500 uppercase">利潤 +$${t.profit.toFixed(1)}</p>
-                    </div>
-                </div>
-            `).join('');
+            // 更新歷史紀錄 (分組摺疊)
+            renderHistoryGroups();
 
             // 更新設定列表
             document.getElementById('config-list').innerHTML = Object.keys(db.prods).map(k => `
@@ -256,6 +278,71 @@
             lucide.createIcons();
         }
 
+        function renderHistoryGroups() {
+            const container = document.getElementById('history-groups');
+            if (db.txs.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 opacity-30 font-black italic uppercase tracking-widest text-sm">No Records Found</div>`;
+                return;
+            }
+
+            // 按日期分組
+            const groups = db.txs.reduce((acc, tx) => {
+                if (!acc[tx.date]) acc[tx.date] = [];
+                acc[tx.date].push(tx);
+                return acc;
+            }, {});
+
+            // 排序日期 (由新到舊)
+            const sortedDates = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a));
+
+            container.innerHTML = sortedDates.map(date => {
+                const dayTxs = groups[date];
+                const dayTotal = dayTxs.reduce((s, t) => s + t.total, 0);
+                const isCollapsed = collapsedDates[date];
+                
+                return `
+                    <div class="space-y-3">
+                        <!-- 日期標題 (開關) -->
+                        <div onclick="toggleDateGroup('${date}')" class="flex justify-between items-center px-2 cursor-pointer group">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 rotate-icon ${isCollapsed ? '' : 'active'}"></i>
+                                <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest italic">${date}</h4>
+                                <span class="bg-indigo-100 text-indigo-600 text-[9px] px-2 py-0.5 rounded-full font-black">${dayTxs.length} 筆</span>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">單日總收</p>
+                                <p class="text-xs font-black text-slate-600">$${dayTotal.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        <!-- 該日期交易清單 -->
+                        <div id="group-${date}" class="collapsible-content ${isCollapsed ? '' : 'expanded'} space-y-3">
+                            ${dayTxs.map(t => `
+                                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between mx-1">
+                                    <div class="flex items-center gap-4">
+                                        <button onclick="deleteTx('${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                        <div>
+                                            <p class="text-sm font-black text-slate-800">${t.product}</p>
+                                            <p class="text-[10px] font-bold text-slate-400">${t.qty}件 @ $${t.price}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-black text-slate-900">$${t.total.toLocaleString()}</p>
+                                        <p class="text-[9px] font-bold text-emerald-500 uppercase">利潤 +$${t.profit.toFixed(1)}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleDateGroup(date) {
+            collapsedDates[date] = !collapsedDates[date];
+            render();
+        }
+
         function StatCard(label, value, icon, color) {
             const colors = { blue: 'bg-blue-50 text-blue-600', emerald: 'bg-emerald-50 text-emerald-600', slate: 'bg-slate-50 text-slate-600', amber: 'bg-amber-50 text-amber-600' };
             return `
@@ -269,7 +356,6 @@
             `;
         }
 
-        // --- 交互行為 ---
         function switchTab(tab) {
             ['input', 'history', 'config'].forEach(t => {
                 document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
@@ -282,7 +368,13 @@
             document.getElementById('prod-modal').classList.toggle('hidden', !show);
         }
 
-        // --- 數據操作 ---
+        function autoFillPrice() {
+            const key = document.getElementById('fd-prod').value;
+            if (key && db.prods[key]) {
+                document.getElementById('fd-price').value = db.prods[key].price;
+            }
+        }
+
         document.getElementById('tx-form').onsubmit = (e) => {
             e.preventDefault();
             const key = document.getElementById('fd-prod').value;
@@ -295,31 +387,36 @@
                 date: document.getElementById('fd-date').value,
                 product: prod.name,
                 productKey: key,
-                qty: qty,
+                qty: qty,       // 用於本地顯示
+                quantity: qty,  // 增加 quantity 欄位以適配不同的 Google Sheet 腳本
                 price: price,
                 total: price * qty,
                 profit: (price - prod.cost) * qty,
-                action: 'ADD'
+                action: 'ADD',
+                timestamp: new Date().toISOString()
             };
 
             db.txs.unshift(newTx);
             db.queue.push(newTx);
             db.prods[key].stock -= qty;
             saveDb();
+            
             e.target.reset();
             document.getElementById('fd-date').value = new Date().toISOString().split('T')[0];
+            autoSync();
         };
 
         function deleteTx(id) {
             const idx = db.txs.findIndex(t => t.id === id);
             if (idx === -1) return;
             const tx = db.txs[idx];
-            if (!confirm("確定撤銷？庫存將歸還。")) return;
+            if (!confirm("確定撤銷此交易？庫存將歸還，且記錄將從雲端移除。")) return;
 
             db.queue.push({...tx, action: 'DEL'});
             if(db.prods[tx.productKey]) db.prods[tx.productKey].stock += tx.qty;
             db.txs.splice(idx, 1);
             saveDb();
+            autoSync();
         }
 
         function updateProd(key, field, val) {
@@ -352,38 +449,52 @@
             saveDb();
         };
 
-        // --- 同步邏輯 ---
         let syncing = false;
         async function autoSync() {
             if (db.queue.length === 0 || syncing || !navigator.onLine) return;
             
             syncing = true;
             const popup = document.getElementById('sync-popup');
+            const detail = document.getElementById('sync-status-detail');
             popup.classList.remove('hidden');
             
             const item = db.queue[0];
+            detail.innerText = `同步中: ${item.product} (${item.action})`;
+
             try {
                 await fetch(API_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
+                    mode: 'no-cors', 
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(item)
                 });
+
                 db.queue.shift();
                 saveDb();
+                
+                if (db.queue.length > 0) {
+                    syncing = false; 
+                    autoSync(); 
+                }
             } catch (e) {
-                console.error("Sync fail", e);
+                console.error("同步失敗:", e);
+                detail.innerText = "同步失敗，等待網絡恢復...";
             } finally {
                 syncing = false;
-                popup.classList.add('hidden');
+                if (db.queue.length === 0) {
+                    setTimeout(() => popup.classList.add('hidden'), 1000);
+                }
             }
         }
 
-        // 初始化
+        window.addEventListener('online', autoSync);
+
         window.onload = () => {
             document.getElementById('fd-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('config-budget').value = db.budget;
             render();
-            setInterval(autoSync, 5000);
+            setInterval(autoSync, 15000);
         };
     </script>
 </body>
