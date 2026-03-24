@@ -123,14 +123,12 @@
             </div>
         </div>
 
-        <!-- 歷史帳目頁面 (日期分組摺疊) -->
+        <!-- 歷史帳目頁面 -->
         <div id="tab-history" class="hidden space-y-4">
-            <div id="history-groups" class="space-y-6">
-                <!-- 由 JS 動態注入分組 -->
-            </div>
+            <div id="history-groups" class="space-y-6"></div>
         </div>
 
-        <!-- 系統設定頁面 (隱藏) -->
+        <!-- 系統設定頁面 -->
         <div id="tab-config" class="hidden space-y-6">
             <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <div class="flex justify-between items-center mb-8">
@@ -151,10 +149,10 @@
     <div id="sync-popup" class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm">
         <div class="bg-slate-900/90 backdrop-blur-xl text-white px-6 py-5 rounded-[2rem] shadow-2xl flex items-center justify-between border border-white/10">
             <div class="flex items-center gap-4">
-                <i data-lucide="refresh-cw" class="animate-spin text-indigo-400 w-5 h-5"></i>
+                <i data-lucide="zap" class="text-amber-400 w-5 h-5 fill-amber-400"></i>
                 <div>
-                    <p class="text-[11px] font-black tracking-widest uppercase italic">正在同步至 Google Sheets...</p>
-                    <p id="sync-status-detail" class="text-[9px] font-bold text-slate-400">正在處理待辦隊列</p>
+                    <p class="text-[11px] font-black tracking-widest uppercase italic">極速同步中...</p>
+                    <p id="sync-status-detail" class="text-[9px] font-bold text-slate-400">正在批次傳送所有變更</p>
                 </div>
             </div>
         </div>
@@ -188,12 +186,12 @@
                 "P2": { name: "設計帆布袋", price: 30, cost: 14, stock: 50 }
             },
             txs: [],
-            queue: [],
+            queue: [], // 待同步隊列
             budget: "3000"
         };
 
-        // 紀錄摺疊狀態
         let collapsedDates = {};
+        let syncing = false;
 
         function saveDb() {
             localStorage.setItem('biz_v5_db', JSON.stringify(db));
@@ -211,7 +209,7 @@
                 ${StatCard('本期總收', `$${totalRev.toLocaleString()}`, 'dollar-sign', 'blue')}
                 ${StatCard('預計利潤', `$${totalProfit.toLocaleString()}`, 'trending-up', 'emerald')}
                 ${StatCard('基礎預算', `$${parseFloat(db.budget).toLocaleString()}`, 'settings', 'slate')}
-                ${StatCard('待同步項', db.queue.length, 'refresh-cw', db.queue.length > 0 ? 'amber' : 'emerald')}
+                ${StatCard('待同步項', db.queue.length, 'zap', db.queue.length > 0 ? 'amber' : 'emerald')}
             `;
             document.getElementById('stats-container').innerHTML = statsHtml;
 
@@ -219,20 +217,18 @@
             const syncText = document.getElementById('sync-text');
             if (db.queue.length > 0) {
                 syncDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 syncing-dot';
-                syncText.innerText = `等待同步 (${db.queue.length})`;
+                syncText.innerText = `準備秒同步 (${db.queue.length})`;
             } else {
                 syncDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
                 syncText.innerText = '雲端已同步';
             }
 
-            // 更新產品下拉選單
             const prodSelect = document.getElementById('fd-prod');
             const currentVal = prodSelect.value;
             prodSelect.innerHTML = '<option value="">請選擇...</option>' + 
                 Object.keys(db.prods).map(k => `<option value="${k}">${db.prods[k].name}</option>`).join('');
             prodSelect.value = currentVal;
 
-            // 更新庫存列表
             document.getElementById('stock-list').innerHTML = Object.keys(db.prods).map(k => `
                 <div class="p-4 bg-slate-50 rounded-2xl flex justify-between items-center border border-transparent hover:border-slate-200">
                     <div class="min-w-0">
@@ -246,10 +242,8 @@
                 </div>
             `).join('');
 
-            // 更新歷史紀錄 (分組摺疊)
             renderHistoryGroups();
 
-            // 更新設定列表
             document.getElementById('config-list').innerHTML = Object.keys(db.prods).map(k => `
                 <div class="p-4 bg-slate-50 rounded-2xl flex items-center gap-4">
                     <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-xs text-indigo-500">${k}</div>
@@ -284,25 +278,18 @@
                 container.innerHTML = `<div class="text-center py-20 opacity-30 font-black italic uppercase tracking-widest text-sm">No Records Found</div>`;
                 return;
             }
-
-            // 按日期分組
             const groups = db.txs.reduce((acc, tx) => {
                 if (!acc[tx.date]) acc[tx.date] = [];
                 acc[tx.date].push(tx);
                 return acc;
             }, {});
-
-            // 排序日期 (由新到舊)
             const sortedDates = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a));
-
             container.innerHTML = sortedDates.map(date => {
                 const dayTxs = groups[date];
                 const dayTotal = dayTxs.reduce((s, t) => s + t.total, 0);
                 const isCollapsed = collapsedDates[date];
-                
                 return `
                     <div class="space-y-3">
-                        <!-- 日期標題 (開關) -->
                         <div onclick="toggleDateGroup('${date}')" class="flex justify-between items-center px-2 cursor-pointer group">
                             <div class="flex items-center gap-3">
                                 <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 rotate-icon ${isCollapsed ? '' : 'active'}"></i>
@@ -314,8 +301,6 @@
                                 <p class="text-xs font-black text-slate-600">$${dayTotal.toLocaleString()}</p>
                             </div>
                         </div>
-
-                        <!-- 該日期交易清單 -->
                         <div id="group-${date}" class="collapsible-content ${isCollapsed ? '' : 'expanded'} space-y-3">
                             ${dayTxs.map(t => `
                                 <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between mx-1">
@@ -375,6 +360,55 @@
             }
         }
 
+        // 修改後的同步邏輯：批次處理
+        async function autoSync() {
+            if (db.queue.length === 0 || syncing || !navigator.onLine) return;
+            
+            syncing = true;
+            const popup = document.getElementById('sync-popup');
+            const detail = document.getElementById('sync-status-detail');
+            popup.classList.remove('hidden');
+            
+            // 複製目前的隊列並清空原隊列，避免在同步過程中產生的新交易被丟棄
+            const batchToSync = [...db.queue];
+            const batchSize = batchToSync.length;
+            detail.innerText = `正在批次同步 ${batchSize} 筆變更...`;
+
+            try {
+                // 如果你的 GAS 腳本支援接收陣列，可以直接傳送整個 batchToSync
+                // 如果只支援一筆一筆，我們可以用 Promise.all 併發處理
+                const syncPromises = batchToSync.map(item => 
+                    fetch(API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', 
+                        cache: 'no-cache',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item)
+                    })
+                );
+
+                await Promise.all(syncPromises);
+
+                // 成功後，從 db.queue 中移除已經成功同步的項
+                // 注意：這期間 db.queue 可能增加了新項，所以要用 filter 根據 id 移除
+                const batchIds = batchToSync.map(b => b.id || b.timestamp);
+                db.queue = db.queue.filter(q => !batchIds.includes(q.id || q.timestamp));
+                saveDb();
+                
+            } catch (e) {
+                console.error("批次同步失敗:", e);
+                detail.innerText = "同步失敗，稍後重試...";
+            } finally {
+                syncing = false;
+                if (db.queue.length === 0) {
+                    setTimeout(() => popup.classList.add('hidden'), 1000);
+                } else {
+                    // 如果還有剩餘（例如同步過程中新增的），立即再次啟動
+                    setTimeout(autoSync, 500);
+                }
+            }
+        }
+
         document.getElementById('tx-form').onsubmit = (e) => {
             e.preventDefault();
             const key = document.getElementById('fd-prod').value;
@@ -387,8 +421,8 @@
                 date: document.getElementById('fd-date').value,
                 product: prod.name,
                 productKey: key,
-                qty: qty,       // 用於本地顯示
-                quantity: qty,  // 增加 quantity 欄位以適配不同的 Google Sheet 腳本
+                qty: qty,
+                quantity: qty,
                 price: price,
                 total: price * qty,
                 profit: (price - prod.cost) * qty,
@@ -403,20 +437,26 @@
             
             e.target.reset();
             document.getElementById('fd-date').value = new Date().toISOString().split('T')[0];
-            autoSync();
+            autoSync(); // 立即觸發同步
         };
 
         function deleteTx(id) {
             const idx = db.txs.findIndex(t => t.id === id);
             if (idx === -1) return;
             const tx = db.txs[idx];
-            if (!confirm("確定撤銷此交易？庫存將歸還，且記錄將從雲端移除。")) return;
+            if (!confirm("確定撤銷此交易？")) return;
 
-            db.queue.push({...tx, action: 'DEL'});
+            db.queue.push({
+                id: tx.id,
+                action: 'DEL',
+                product: tx.product,
+                timestamp: new Date().toISOString()
+            });
+
             if(db.prods[tx.productKey]) db.prods[tx.productKey].stock += tx.qty;
             db.txs.splice(idx, 1);
             saveDb();
-            autoSync();
+            autoSync(); // 立即觸發同步
         }
 
         function updateProd(key, field, val) {
@@ -449,52 +489,14 @@
             saveDb();
         };
 
-        let syncing = false;
-        async function autoSync() {
-            if (db.queue.length === 0 || syncing || !navigator.onLine) return;
-            
-            syncing = true;
-            const popup = document.getElementById('sync-popup');
-            const detail = document.getElementById('sync-status-detail');
-            popup.classList.remove('hidden');
-            
-            const item = db.queue[0];
-            detail.innerText = `同步中: ${item.product} (${item.action})`;
-
-            try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', 
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(item)
-                });
-
-                db.queue.shift();
-                saveDb();
-                
-                if (db.queue.length > 0) {
-                    syncing = false; 
-                    autoSync(); 
-                }
-            } catch (e) {
-                console.error("同步失敗:", e);
-                detail.innerText = "同步失敗，等待網絡恢復...";
-            } finally {
-                syncing = false;
-                if (db.queue.length === 0) {
-                    setTimeout(() => popup.classList.add('hidden'), 1000);
-                }
-            }
-        }
-
         window.addEventListener('online', autoSync);
 
         window.onload = () => {
             document.getElementById('fd-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('config-budget').value = db.budget;
             render();
-            setInterval(autoSync, 15000);
+            // 每 30 秒自動檢查一次（作為保險），其餘時間靠操作觸發
+            setInterval(autoSync, 30000);
         };
     </script>
 </body>
